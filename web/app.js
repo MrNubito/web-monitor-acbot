@@ -2,7 +2,8 @@ import { createPerformanceHistory, performanceSvg } from './performance-chart.js
 import { createLiveView } from './live-view.js';
 import { icon, hydrateIcons } from './icons.js';
 const $=id=>document.getElementById(id);
-let base=sessionStorage.getItem('acbot.agent')||location.origin,token=sessionStorage.getItem('acbot.token')||'',status=null,period='session',page='overview',stats=null,profile=null,category='',paused=false,logLines=[],screenshotUrl=null;
+const localAgentOrigin=['localhost','127.0.0.1','[::1]'].includes(location.hostname)?location.origin:'';
+let base=sessionStorage.getItem('acbot.agent')||localAgentOrigin,token=sessionStorage.getItem('acbot.token')||'',status=null,period='session',page='overview',stats=null,profile=null,category='',paused=false,logLines=[],screenshotUrl=null;
 const changes=new Map();
 const performanceHistory=createPerformanceHistory();
 const metrics=[['Gold','gold_gained','coin','gold'],['Elixir','elixir_gained','drop','elixir'],['Dark elixir','dark_gained','dark','dark'],['Attacks','total_attacks','swords','attacks'],['Donations','donations_completed','donate','donations'],['Walls upgraded','walls_upgraded','wall','walls']];
@@ -13,6 +14,7 @@ let toastTimer;
 function toast(message){$('toast').textContent=message;$('toast').hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('toast').hidden=true,6000);}
 function connected(on){if(!on)stopScreen('Agent disconnected');$('connectionBadge').textContent=on?'Agent online':'Offline';$('connectionBadge').classList.toggle('on',on);$('sideDot').classList.toggle('on',on);$('agentState').replaceChildren(document.createTextNode(on?'PC agent connected':'Agent disconnected'));const small=document.createElement('small');small.textContent='Your PC is the control center';$('agentState').append(small);$('connectionButton').textContent=on?'Connection settings':'Connect agent';}
 async function api(route,options={}){
+  if(!base)throw Error('Connect your PC agent to use this feature.');
   const res=await fetch(base+route,{...options,headers:{'Content-Type':'application/json',Authorization:'Bearer '+token,...options.headers}});
   if(!res.ok){const error=await res.json().catch(()=>({error:res.statusText}));if(res.status===401){connected(false);$('agentUrl').value=base;if(!$('connectDialog').open)$('connectDialog').showModal();}throw Error(error.error||'Request failed.');}return res;
 }
@@ -112,6 +114,6 @@ $('restartInstance').onclick=async()=>{const b=$('restartInstance');b.disabled=t
 document.addEventListener('visibilitychange',()=>{if(document.hidden)stopScreen('Live view paused while this tab is hidden');});
 window.addEventListener('pagehide',()=>stopScreen('Live view stopped'));
 window.addEventListener('beforeunload',event=>{if(changes.size){event.preventDefault();event.returnValue='';}});
-hydrateIcons();drawMetrics();renderInstance();$('agentUrl').value=base;if(token)refresh();else $('connectDialog').showModal();
+hydrateIcons();drawMetrics();renderInstance();$('agentUrl').placeholder=localAgentOrigin?'http://127.0.0.1:17942':'https://your-pc-agent-address';$('agentUrl').value=base;if(token&&base)refresh();else $('connectDialog').showModal();
 function updateClock(){$('localClock').textContent=new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});}updateClock();setInterval(updateClock,30000);
 setInterval(()=>{if(token&&!document.hidden){if(page==='overview'||page==='instances')refresh();if(page==='logs')showLogs();}},2000);

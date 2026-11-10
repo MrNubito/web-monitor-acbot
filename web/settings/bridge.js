@@ -1,5 +1,5 @@
 (() => {
-  const base=()=>sessionStorage.getItem('acbot.agent')||location.origin;
+  const base=()=>{const address=sessionStorage.getItem('acbot.agent')||(['localhost','127.0.0.1','[::1]'].includes(location.hostname)?location.origin:'');if(!address)throw Error('Connect your PC agent first.');return address;};
   async function api(route,body){const response=await fetch(base()+route,{method:body===undefined?'GET':'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+(sessionStorage.getItem('acbot.token')||'')},body:body===undefined?undefined:JSON.stringify(body)});const data=await response.json();if(!response.ok)throw Error(data.error||'Agent request failed.');return data;}
   const statusListeners=[],logListeners=[],progressListeners=[];let lastLog='';
   const choose=()=>Promise.resolve(prompt('Enter the absolute path on the PC running the agent:')||null);
