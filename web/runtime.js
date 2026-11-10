@@ -10,3 +10,10 @@ export function runtimeFromStats(stats={}){
   const hours=Math.floor(seconds/3600),minutes=Math.floor(seconds%3600/60),remaining=seconds%60;
   return {available:true,seconds,label:[hours,minutes,remaining].map(value=>String(value).padStart(2,'0')).join(':')};
 }
+export function runtimeAt(runtime,elapsedMs=0){
+  if(!runtime?.available)return runtimeFromStats();
+  if(!runtime.running||!Number.isFinite(runtime.estimateSeconds))return runtimeFromStats({runtime_seconds:runtime.seconds});
+  // Stop extrapolating if the lightweight connection stops delivering updates.
+  const elapsed=Math.max(0,Math.min(10000,elapsedMs));
+  return {...runtimeFromStats({runtime_seconds:runtime.estimateSeconds+Math.floor(elapsed/1000)}),estimated:true};
+}
