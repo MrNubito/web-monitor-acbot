@@ -91,3 +91,15 @@ Official documentation: https://developers.cloudflare.com/tunnel/get-started/qui
 ### Runtime per bot
 
 The first performance card displays Runtime as HH:MM:SS. Session view uses ACBot runtime_seconds, or the legacy runtime string when seconds are unavailable; Daily view uses the recorded daily total. The Instances page shows each bot's latest-session runtime from the same source. The clock reflects reported bot working time, not browser uptime, and never wraps after 24 hours. Missing data appears as an em dash instead of a made-up timer.
+
+### Local testing without publishing
+
+Run `npm run lan` (or `Start Local Network.cmd`) to serve the current checkout directly on your private network. Open the printed local network address on a device connected to the same network and sign in with the agent password. Use `npm start` for PC-only access. Source changes are visible after reloading; restart the agent for service changes. Neither command uploads to GitHub.
+
+Profile Studio shows the recorded TH level when ACBot stores `TH_LEVEL`. Missing levels remain unknown. Upgrade, research and pet targets use the bundled catalogs and preserve the profile's existing slot count and value format.
+
+Live view now streams continuous ADB H.264 video into a browser MediaSource player (jMuxer 2.1.4, MIT, bundled locally under web/vendor). It has selectable 640/960/1280 maximum-edge resolution, authenticated fetch streaming, bounded buffering and encoder cleanup on disconnect. Android screenrecord renews after its time limit; the player reconnects automatically. Screenshot remains a separate still-image action.
+
+### Account Statistics
+
+The agent polls log changes and cumulative counters every two seconds, independently of browser connections, and stores its own history in ignored `data/account-history.db`. A confirmed profile-load log identifies each account, scoped by instance. New history begins at the initial counter baseline; no old instance totals are imported. Intervals spanning profile switches, missing logs, counter resets or agent interruptions are excluded from account totals and shown as Unassigned where a positive difference can be recovered. Account totals are estimates because ACBot saves global counters periodically. Today and Last 7 days use the PC local timezone and sample observation times. Keep the PC agent running to collect history.

@@ -1,4 +1,7 @@
 const paths={
+ hammer:'<path d="m14 3 7 7-4 4-7-7zM12 9 3 18l3 3 9-9M12 3l-2 4"/>',
+ flask:'<path d="M9 3h6M10 3v6l-6 10a1.3 1.3 0 0 0 1 2h14a1.3 1.3 0 0 0 1-2L14 9V3M8 14h8M9 18h.01M14 17h.01"/>',
+ tree:'<path d="m12 2-6 7h3l-5 7h6v6h4v-6h6l-5-7h3z"/>',
   grid:'<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>',
   logs:'<path d="M8 6h13M8 12h13M8 18h9"/><path d="m3 6 .01 0M3 12h.01M3 18h.01"/>',
   layers:'<path d="m12 3 10 5-10 5L2 8zM2 12l10 5 10-5M2 16l10 5 10-5"/>',

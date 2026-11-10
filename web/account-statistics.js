@@ -1,0 +1,14 @@
+import {runtimeFromStats} from './runtime.js';
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const number=v=>new Intl.NumberFormat('en-US').format(v||0);
+const runtime=v=>runtimeFromStats({runtime_seconds:v||0}).label;
+const date=v=>v?new Date(v).toLocaleString():'—';
+export function renderAccountStatistics(data){
+ const labels=new Map(data.instances.map(i=>[i.id,i.label]));
+ const headers=['Account','Runtime','Attacks','Gold','Elixir','Dark elixir','Donations','Walls','Upgrades','Research','Obstacles','BB attacks','BB walls','0★','1★','2★','3★'];
+ const cells=c=>[runtime(c.runtime_seconds),number(c.total_attacks),number(c.gold_gained),number(c.elixir_gained),number(c.dark_gained),number(c.donations_completed),number(c.walls_upgraded),number(c.upgrades_done),number(c.research_done),number(c.obstacles_removed),number(c.bb_attacks),number(c.bb_walls_upgraded),number(c.stars_0),number(c.stars_1),number(c.stars_2),number(c.stars_3)].map(v=>'<td>'+v+'</td>').join('');
+ const table=data.accounts.length?'<div class="account-table-scroll"><table class="account-table"><thead><tr>'+headers.map(h=>'<th>'+h+'</th>').join('')+'</tr></thead><tbody>'+data.accounts.map(a=>'<tr><th>'+esc(a.profile)+'<small>'+esc(labels.get(a.instance)||a.instance)+(a.active?' · Last confirmed profile':'')+'</small></th>'+cells(a.counters)+'</tr>').join('')+'</tbody></table></div>':'<div class="empty">Waiting for new recorded activity. Previous instance totals are not assigned to accounts.</div>';
+ const unassigned=Object.values(data.unassigned).some(v=>v>0)?'<details class="account-unassigned"><summary>Unassigned intervals · excluded from account totals</summary><p>These counters crossed a profile change or an interruption and could not be assigned reliably.</p><div class="account-table-scroll"><table class="account-table"><thead><tr>'+headers.slice(1).map(h=>'<th>'+h+'</th>').join('')+'</tr></thead><tbody><tr>'+cells(data.unassigned)+'</tr></tbody></table></div></details>':'';
+ const turns=data.turns.map(t=>'<div class="account-turn"><div><strong>'+esc(t.profile)+'</strong><small>'+esc(labels.get(t.instance)||t.instance)+'</small></div><div><span>'+esc(date(t.started))+'</span><small>'+(t.ended?esc(date(t.ended)):'Open turn · last confirmed profile')+'</small></div><div><strong>'+runtime(t.counters.runtime_seconds)+'</strong><small>'+number(t.counters.total_attacks)+' attacks · '+number(t.counters.gold_gained)+' gold</small></div></div>').join('')||'<div class="empty compact">No recorded turns in this period.</div>';
+ return '<div class="notice">'+esc(data.message)+'</div>'+(data.error?'<div class="notice">Recorder: '+esc(data.error)+'</div>':'')+'<section class="panel account-totals"><h2>Account totals <span class="badge">Estimated</span></h2>'+table+unassigned+'</section><section class="panel account-turns"><h2>Recent turns</h2>'+turns+'</section>';
+}

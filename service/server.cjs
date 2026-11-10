@@ -2,6 +2,10 @@ const http=require('http'),fs=require('fs'),path=require('path'),crypto=require(
 const host=require('./runtime-host'),{createAuth}=require('./auth.cjs'),{readStats}=require('./stats.cjs');
 const engine=require('./agent/app/main'),editor=require('./agent/profile-config');
 const runtimeTools=import('../web/runtime.js');
+const {describeProfile,validateChange,readonly}=require('./profile-fields.cjs');
+const {lanHosts}=require('./network.cjs');
+const {createVideoService}=require('./video.cjs');
+const {createAccountHistory}=require('./account-history.cjs');
 const {createTelemetryReader}=require('./telemetry.cjs');
 const webDir=path.resolve(__dirname,'../web');
 const defaults='DISCORD_TOKEN=\nLOG_FILES=\nAUTOCONTROL_INSTANCES=\nANDROID_APK_INSTANCES=[]\nANDROID_APK_ENABLED=false\nAPP_AUTOSTART_BOT=false\nAUTOCONTROL_ENABLED=false\nMOBILE_CONTROL_ENABLED=false\nMOBILE_CONTROL_HOST=127.0.0.1\nMOBILE_CONTROL_PORT=17942\n';
@@ -10,6 +14,8 @@ engine.ensureRuntimeFiles();
 const secretKey=key=>/token|password|secret|apiKey/i.test(key);
 function createServer({auth=createAuth(host.dataDir)}={}){
   const profileSessions=new Map();
+  const video=createVideoService({engine});
+  const accountHistory=createAccountHistory({file:path.join(host.dataDir,'account-history.db'),engine,readStats});accountHistory.start();
   let telemetryReader;
   async function telemetry(){const helpers=await runtimeTools;telemetryReader||=createTelemetryReader({engine,readStats,runtimeFromStats:helpers.runtimeFromStats});return telemetryReader();}
   const network=()=>{try{return JSON.parse(fs.readFileSync(path.join(host.dataDir,'network.json'),'utf8'));}catch{return {};}};
@@ -24,16 +30,15 @@ function createServer({auth=createAuth(host.dataDir)}={}){
     const snapshot=editor.readProfile(root,decodeURIComponent(profile));
     const sid=crypto.randomBytes(20).toString('hex');
     profileSessions.set(sid,{...snapshot,root,profile:decodeURIComponent(profile),instanceId:id,owner:token,expires:Date.now()+30*60000});
-    const fields=Object.entries(snapshot.config).filter(([k])=>editor.editable(k)).map(([key,value])=>({key,value,label:editor.optionName(key),category:editor.category(key),display:editor.formattedValue(key,value,snapshot.config),choices:editor.choices(key,value),slots:editor.slotEditor(key,value)}));
-    return {session:sid,profile:decodeURIComponent(profile),fields};
+    return {session:sid,profile:decodeURIComponent(profile),...describeProfile(snapshot.config)};
   }
-  return http.createServer(async(req,res)=>{
+  const server=http.createServer(async(req,res)=>{
     try{
       res.setHeader('X-Content-Type-Options','nosniff');res.setHeader('Referrer-Policy','no-referrer');
       const cfg=network();
       const allowedOrigins=new Set([...(cfg.allowedOrigins||[]),...(process.env.WEB_ALLOWED_ORIGINS||'').split(',').filter(Boolean)]);
       const publicUrl=process.env.WEB_PUBLIC_URL||cfg.publicUrl;
-      const trustedHosts=new Set(['127.0.0.1','localhost','[::1]']);if(publicUrl)trustedHosts.add(new URL(publicUrl).hostname);
+      const trustedHosts=new Set(['127.0.0.1','localhost','[::1]',...lanHosts()]);if(publicUrl)trustedHosts.add(new URL(publicUrl).hostname);
       const url=new URL(req.url,'http://'+(req.headers.host||'localhost'));
       if(!trustedHosts.has(url.hostname))return json(res,403,{error:'Host is not configured. Set publicUrl in data/network.json.'});
       const origin=req.headers.origin;
@@ -44,6 +49,7 @@ function createServer({auth=createAuth(host.dataDir)}={}){
       if(url.pathname.startsWith('/api/')){
         const token=auth.authorized(req);if(!token)return json(res,401,{error:'Sign in to your PC agent.'});
         if(url.pathname==='/api/logout'&&req.method==='POST'){auth.logout(token);return json(res,200,{ok:true});}
+        if(url.pathname==='/api/accounts'&&req.method==='GET')return json(res,200,accountHistory.view({instance:url.searchParams.get('instance')||undefined,range:['today','week','all'].includes(url.searchParams.get('range'))?url.searchParams.get('range'):'today',profile:url.searchParams.get('profile')||undefined}));
         if(url.pathname==='/api/telemetry'&&req.method==='GET')return json(res,200,await telemetry());
         if(url.pathname==='/api/status'&&req.method==='GET'){
           const config=engine.mobileConfig();
@@ -67,8 +73,19 @@ function createServer({auth=createAuth(host.dataDir)}={}){
         if(url.pathname==='/api/android/devices'&&req.method==='GET')return json(res,200,{devices:await host.handlers.get('android:devices')()});
         if(url.pathname==='/api/android/start'&&req.method==='POST'){const data=await body(req);return json(res,200,await host.handlers.get('android:autostart')(null,data.settings||engine.configFromEnv(),data.id));}
         if(url.pathname==='/api/android/cancel'&&req.method==='POST'){const data=await body(req);return json(res,200,await host.handlers.get('android:autostart-cancel')(null,data.device));}
+        const videoMatch=url.pathname.match(/^\/api\/instances\/([^/]+)\/video$/);
+        if(videoMatch&&req.method==='GET')return await video.stream(instance(videoMatch[1]),req,res);
         const stats=url.pathname.match(/^\/api\/instances\/([^/]+)\/stats$/);
         if(stats&&req.method==='GET'){const root=engine.resolveAutoClashRootPath(instance(stats[1]));if(!root)return json(res,200,{available:false,message:'Configure the ACBot folder first.'});return json(res,200,readStats(root,url.searchParams.get('period')==='daily'?'daily':'session'));}
+        const profileList=url.pathname.match(/^\/api\/instances\/([^/]+)\/profiles$/);
+        if(profileList&&req.method==='GET'){
+          const selected=instance(profileList[1]),root=engine.resolveAutoClashRootPath(selected);
+          const profiles=engine.listMobileProfiles(selected).map(item=>{
+            let metadata={townHall:null,builderHall:null};
+            if(item.available)try{metadata=describeProfile(editor.readProfile(root,item.id).config).metadata;}catch{}
+            return {...item,metadata,label:item.name+(metadata.townHall?' · TH '+metadata.townHall:'')};
+          });return json(res,200,{profiles});
+        }
         const profile=url.pathname.match(/^\/api\/instances\/([^/]+)\/profiles\/([^/]+)\/config$/);
         if(profile){
           if(req.method==='GET')return json(res,200,profileView(profile[1],profile[2],token));
@@ -77,7 +94,8 @@ function createServer({auth=createAuth(host.dataDir)}={}){
             if(!session||session.expires<Date.now()||session.owner!==token||session.instanceId!==profile[1]||session.profile!==decodeURIComponent(profile[2]))return json(res,409,{error:'The editor session expired. Reload the profile.'});
             if(!data.changes||Array.isArray(data.changes)||typeof data.changes!=='object')throw Error('Invalid changes.');
             const changes=new Map();for(const [key,value]of Object.entries(data.changes)){
-              if(!Object.hasOwn(session.config,key)||!editor.editable(key))throw Error('Invalid option.');
+              if(!Object.hasOwn(session.config,key)||!editor.editable(key)||readonly.has(key))throw Error('Invalid option.');
+              validateChange(describeProfile(session.config).fields.find(f=>f.key===key),value);
               const previous=session.config[key];
               if(typeof previous==='boolean'){if(typeof value!=='boolean')throw Error('Expected Enabled or Disabled.');changes.set(key,value);}
               else changes.set(key,editor.parseValue(previous,typeof value==='string'?value:JSON.stringify(value)));
@@ -102,11 +120,15 @@ function createServer({auth=createAuth(host.dataDir)}={}){
       res.writeHead(200,{'Content-Type':types[path.extname(file)],'Cache-Control':'no-cache'});if(req.method==='HEAD')return res.end();fs.createReadStream(file).pipe(res);
     }catch(error){if(!res.headersSent)json(res,error.status||400,{error:error.message});else res.end();}
   });
+  server.on('close',()=>{video.stopAll();accountHistory.close();});
+  server.stopVideo=()=>video.stopAll();
+  return server;
 }
 if(require.main===module){
   const port=Number(process.env.PORT||17942),server=createServer();
-  server.listen(port,'127.0.0.1',()=>console.log('Web Monitor ACBot: http://127.0.0.1:'+port+' (independent PC agent)'));
-  let stopping=false;const stop=()=>{if(stopping)return;stopping=true;engine.stopAll();server.close(()=>process.exit(0));setTimeout(()=>process.exit(0),5000).unref();};
+  const lan=process.argv.includes('--lan');
+  server.listen(port,lan?'0.0.0.0':'127.0.0.1',()=>{console.log('Web Monitor ACBot: http://127.0.0.1:'+port);if(lan)for(const address of lanHosts())console.log('Local network: http://'+address+':'+port);});
+  let stopping=false;const stop=()=>{if(stopping)return;stopping=true;server.stopVideo();engine.stopAll();server.close(()=>process.exit(0));setTimeout(()=>process.exit(0),5000).unref();};
   process.on('SIGINT',stop);process.on('SIGTERM',stop);
 }
 module.exports={createServer};

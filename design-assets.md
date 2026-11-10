@@ -27,3 +27,5 @@ Donations prompt: Remove only the white background and ground shadow. Preserve t
 ## Walls icon
 
 Built-in image_gen edit with transparent_background=true. Output: web/assets/resource-walls.png. Prompt: Remove only the white background from the exact V-shaped lava-wall game icon. Preserve the original isometric walls, three dark stone posts with glowing orange eyes, gold details, lava colors, silhouette and sprite style. Keep all parts and internal highlights, with genuine alpha transparency and small transparent padding. No redesign, perspective changes, backdrop, lettering or watermark.
+
+Misc statistics: existing wall, donation and attack images reused. Generated transparent 3D inventory icons for obstacles (bush/stump/rock), upgrades (hammer and builder hut), and research (purple/blue potion flasks), saved as resource-obstacles.png, resource-upgrades.png and resource-research.png.

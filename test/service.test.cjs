@@ -22,7 +22,7 @@ test('authenticated API, secrets, profiles, conflicts and static-only serving',a
   const auth=createAuth(process.env.ACBOT_WEB_DATA);auth.setPassword('another-strong-test-password');server=createServer({auth});await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
   const base='http://127.0.0.1:'+server.address().port;
   const request=(url,options={})=>fetch(base+url,options);
-  assert.equal((await request('/api/status')).status,401);
+  assert.equal((await request('/api/status')).status,401);assert.equal((await request('/api/accounts')).status,401);
   assert.equal((await request('/api/bot/start',{method:'POST'})).status,401);
   assert.equal((await request('/api/login',{method:'POST',headers:{Origin:'https://evil.example','Content-Type':'application/json'},body:JSON.stringify({password:'another-strong-test-password'})})).status,403);
   const hostileHost=await new Promise((resolve,reject)=>require('node:http').get(base+'/api/status',{headers:{Host:'evil.example'}},res=>{res.resume();resolve(res.statusCode);}).on('error',reject));
@@ -30,11 +30,11 @@ test('authenticated API, secrets, profiles, conflicts and static-only serving',a
   const login=await request('/api/login',{method:'POST',body:JSON.stringify({password:'another-strong-test-password'})});assert.equal(login.status,200);const {token}=await login.json();
   const headers={Authorization:'Bearer '+token,'Content-Type':'application/json'};
   const api=async(url,body)=>{const res=await request(url,{headers,method:body===undefined?'GET':'POST',body:body===undefined?undefined:JSON.stringify(body)});return {status:res.status,data:await res.json()};};
-  const initial=await api('/api/status');assert.equal(initial.status,200);assert.deepEqual(initial.data.instances,[]);assert.equal(initial.data.botRunning,false);
+  const initial=await api('/api/status');assert.equal(initial.status,200);assert.deepEqual(initial.data.instances,[]);assert.equal(initial.data.botRunning,false);const accountView=await api('/api/accounts');assert.equal(accountView.status,200);assert.deepEqual(accountView.data.accounts,[]);
   assert.equal((await request('/service/server.cjs')).status,404);assert.equal((await request('/data/.env')).status,404);
   const index=await request('/');assert.equal(index.status,200);assert.match(await index.text(),/<title>ACBot/);
   const settings=await request('/settings/');assert.match(await settings.text(),/bridge.js/);
-  const acbot=path.join(temp,'acbot'),profilePath=path.join(acbot,'profiles','config.json');fs.mkdirSync(path.dirname(profilePath),{recursive:true});fs.writeFileSync(profilePath,JSON.stringify({FARMING_ENABLED:true,UPGRADE_WALLS:false,ATTACK_MIN_GOLD:100}));
+  const acbot=path.join(temp,'acbot'),profilePath=path.join(acbot,'profiles','config.json');fs.mkdirSync(path.dirname(profilePath),{recursive:true});fs.writeFileSync(profilePath,JSON.stringify({FARMING_ENABLED:true,UPGRADE_WALLS:false,ATTACK_MIN_GOLD:100,TH_LEVEL:14,HOME_UPGRADE_SLOTS:['','','']}));
   const config=(await api('/api/config')).data;config.discordToken='test-secret-never-return-this';config.autoControlInstances=['main','Main',acbot,'','pro','false','auto',''].join('|');config.logs=[];
   assert.equal((await api('/api/config',config)).status,200);
   const statsDir=path.join(acbot,'logs','stats');fs.mkdirSync(statsDir,{recursive:true});
@@ -42,7 +42,7 @@ test('authenticated API, secrets, profiles, conflicts and static-only serving',a
   const runtimeStatus=await api('/api/status');assert.equal(runtimeStatus.data.instances[0].runtime.label,'12:29:14');assert.equal(runtimeStatus.data.instances[0].runtime.seconds,44954);
   const readConfig=await api('/api/config');assert.equal(readConfig.data.discordToken,'');assert.ok(!JSON.stringify(readConfig.data).includes('test-secret-never-return-this'));
   await api('/api/config',{...readConfig.data,discordToken:''});assert.equal(engine.configFromEnv().discordToken,'test-secret-never-return-this');
-  const route='/api/instances/main/profiles/__global__/config';let view=await api(route);assert.equal(view.status,200);assert.ok(view.data.fields.some(f=>f.label==='Upgrade Walls'));
+  const route='/api/instances/main/profiles/__global__/config';let view=await api(route);assert.equal(view.status,200);assert.ok(view.data.fields.some(f=>f.label==='Upgrade Walls'));assert.equal(view.data.metadata.townHall,14);assert.ok(!view.data.fields.some(f=>f.key==='TH_LEVEL'));const profiles=await api('/api/instances/main/profiles');assert.equal(profiles.data.profiles[0].metadata.townHall,14);const forbidden=await api(route,{session:view.data.session,changes:{TH_LEVEL:15}});assert.equal(forbidden.status,400);
   fs.writeFileSync(profilePath,JSON.stringify({FARMING_ENABLED:true,UPGRADE_WALLS:false,ATTACK_MIN_GOLD:250}));
   const saved=await api(route,{session:view.data.session,changes:{UPGRADE_WALLS:true}});assert.equal(saved.status,200);assert.ok(saved.data.backup);assert.equal(JSON.parse(fs.readFileSync(profilePath)).ATTACK_MIN_GOLD,250);
   view=await api(route);const outside=JSON.parse(fs.readFileSync(profilePath));outside.ATTACK_MIN_GOLD=500;fs.writeFileSync(profilePath,JSON.stringify(outside));
