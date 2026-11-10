@@ -1,6 +1,7 @@
 const http=require('http'),fs=require('fs'),path=require('path'),crypto=require('crypto');
 const host=require('./runtime-host'),{createAuth}=require('./auth.cjs'),{readStats}=require('./stats.cjs');
 const engine=require('./agent/app/main'),editor=require('./agent/profile-config');
+const runtimeTools=import('../web/runtime.js');
 const webDir=path.resolve(__dirname,'../web');
 const defaults='DISCORD_TOKEN=\nLOG_FILES=\nAUTOCONTROL_INSTANCES=\nANDROID_APK_INSTANCES=[]\nANDROID_APK_ENABLED=false\nAPP_AUTOSTART_BOT=false\nAUTOCONTROL_ENABLED=false\nMOBILE_CONTROL_ENABLED=false\nMOBILE_CONTROL_HOST=127.0.0.1\nMOBILE_CONTROL_PORT=17942\n';
 if(!fs.existsSync(path.join(host.dataDir,'.env')))fs.writeFileSync(path.join(host.dataDir,'.env'),defaults,{mode:0o600});
@@ -40,6 +41,16 @@ function createServer({auth=createAuth(host.dataDir)}={}){
       if(url.pathname.startsWith('/api/')){
         const token=auth.authorized(req);if(!token)return json(res,401,{error:'Sign in to your PC agent.'});
         if(url.pathname==='/api/logout'&&req.method==='POST'){auth.logout(token);return json(res,200,{ok:true});}
+        if(url.pathname==='/api/status'&&req.method==='GET'){
+          const config=engine.mobileConfig();
+          const instances=await engine.getMobileInstancesStatus(config);
+          const {runtimeFromStats}=await runtimeTools;
+          for(const current of instances){
+            current.runtime=runtimeFromStats();
+            try{const configured=engine.findMobileInstance(config,current.id);const root=engine.resolveAutoClashRootPath(configured||current);if(root){const result=readStats(root);current.runtime=runtimeFromStats(result.stats);current.runtimeSource=result.source||null;}}catch{current.runtimeSource=null;}
+          }
+          return json(res,200,{app:'ACBot Web Monitor',botRunning:engine.botRunning(),adbConnected:instances.some(i=>i.adbConnected),ldPlayerRunning:instances.some(i=>i.ldPlayerRunning),instances,logs:engine.mobileLogsConfig().map(engine.mobileLogSummary)});
+        }
         if(url.pathname==='/api/config'){
           if(req.method==='GET')return json(res,200,publicConfig());
           if(req.method==='POST'){

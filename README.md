@@ -87,3 +87,7 @@ The launcher reuses the local agent if it is already running, otherwise starts i
 Keep the PC and remote launcher running while connected. Ctrl+C stops the tunnel; it does not stop a pre-existing local agent. The address changes each time a Quick Tunnel is created. This is a testing connection with no uptime guarantee, not a permanent production hostname. A stable address needs a named tunnel/domain or another configured hosting service. No router port-forwarding or Tailscale client is required on the visiting device.
 
 Official documentation: https://developers.cloudflare.com/tunnel/get-started/quick-tunnels/
+
+### Runtime per bot
+
+The first performance card displays Runtime as HH:MM:SS. Session view uses ACBot runtime_seconds, or the legacy runtime string when seconds are unavailable; Daily view uses the recorded daily total. The Instances page shows each bot's latest-session runtime from the same source. The clock reflects reported bot working time, not browser uptime, and never wraps after 24 hours. Missing data appears as an em dash instead of a made-up timer.

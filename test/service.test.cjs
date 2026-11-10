@@ -37,6 +37,9 @@ test('authenticated API, secrets, profiles, conflicts and static-only serving',a
   const acbot=path.join(temp,'acbot'),profilePath=path.join(acbot,'profiles','config.json');fs.mkdirSync(path.dirname(profilePath),{recursive:true});fs.writeFileSync(profilePath,JSON.stringify({FARMING_ENABLED:true,UPGRADE_WALLS:false,ATTACK_MIN_GOLD:100}));
   const config=(await api('/api/config')).data;config.discordToken='test-secret-never-return-this';config.autoControlInstances=['main','Main',acbot,'','pro','false','auto',''].join('|');config.logs=[];
   assert.equal((await api('/api/config',config)).status,200);
+  const statsDir=path.join(acbot,'logs','stats');fs.mkdirSync(statsDir,{recursive:true});
+  fs.writeFileSync(path.join(statsDir,'session-1.json'),JSON.stringify({runtime_seconds:44954,runtime:'12:29:14'}));
+  const runtimeStatus=await api('/api/status');assert.equal(runtimeStatus.data.instances[0].runtime.label,'12:29:14');assert.equal(runtimeStatus.data.instances[0].runtime.seconds,44954);
   const readConfig=await api('/api/config');assert.equal(readConfig.data.discordToken,'');assert.ok(!JSON.stringify(readConfig.data).includes('test-secret-never-return-this'));
   await api('/api/config',{...readConfig.data,discordToken:''});assert.equal(engine.configFromEnv().discordToken,'test-secret-never-return-this');
   const route='/api/instances/main/profiles/__global__/config';let view=await api(route);assert.equal(view.status,200);assert.ok(view.data.fields.some(f=>f.label==='Upgrade Walls'));
