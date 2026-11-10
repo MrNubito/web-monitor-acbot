@@ -1,0 +1,424 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Discord Log Monitor</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <header class="window-bar">
+      <div class="window-title">
+        <img src="./assets/icon.ico" alt="" />
+        <span>Discord Log Monitor</span>
+      </div>
+      <div class="window-controls">
+        <button type="button" id="minimizeWindow" aria-label="Minimize">−</button>
+        <button type="button" id="maximizeWindow" aria-label="Maximize">□</button>
+        <button type="button" id="closeWindow" aria-label="Close">×</button>
+      </div>
+    </header>
+    <main class="shell">
+      <section class="topbar">
+        <div>
+          <h1>Discord Log Monitor</h1>
+          <p>Local control panel for the Discord log monitor.</p>
+        </div>
+        <div class="status">
+          <span id="statusDot" class="dot stopped"></span>
+          <span id="statusText">Stopped</span>
+        </div>
+      </section>
+
+      <nav class="tabs" aria-label="App sections">
+        <button type="button" class="tab-button active" data-tab="monitorPanel">Monitor</button>
+        <button type="button" class="tab-button" data-tab="guidePanel">Setup guide</button>
+      </nav>
+
+      <section id="monitorPanel" class="tab-panel active">
+        <section class="grid">
+          <form id="configForm" class="panel">
+            <div class="form-head">
+              <div>
+                <div class="section-title">Controls</div>
+                <p>Save changes before starting the bot.</p>
+              </div>
+              <div class="actions top-actions">
+                <label class="switch-control" title="Start the Discord bot automatically when this app opens.">
+                  <input id="autoStartBot" type="checkbox" />
+                  <span class="switch-track" aria-hidden="true"></span>
+                  <span class="switch-text">AutoStart</span>
+                </label>
+                <button type="submit" class="primary">Save</button>
+                <button type="button" id="startBot" class="success">Start bot</button>
+                <button type="button" id="stopBot" class="danger">Stop</button>
+              </div>
+            </div>
+
+            <nav class="config-tabs" aria-label="Configuration sections">
+              <button type="button" class="config-tab-button active" data-config-tab="discordConfig">Discord</button>
+              <button type="button" class="config-tab-button" data-config-tab="logsConfig">Logs</button>
+              <button type="button" class="config-tab-button" data-config-tab="autoclashConfig">AutoClash</button>
+              <button type="button" class="config-tab-button" data-config-tab="autostartConfig">AutoStart</button>
+              <button type="button" class="config-tab-button" data-config-tab="mobileConfig">Mobile</button>
+              <button type="button" class="config-tab-button" data-config-tab="androidApkConfig">Android APK</button>
+              <button type="button" class="config-tab-button" data-config-tab="optionsConfig">Options</button>
+            </nav>
+
+            <section id="discordConfig" class="config-panel active">
+              <div class="section-title">Discord</div>
+
+              <label>
+                Bot token
+                <input id="discordToken" type="password" autocomplete="off" />
+              </label>
+
+              <label>
+                Fallback channel
+                <input id="fallbackChannelId" type="text" inputmode="numeric" />
+              </label>
+            </section>
+
+            <section id="logsConfig" class="config-panel">
+              <div class="section-title">Logs</div>
+
+              <div id="logsList" class="logs-list"></div>
+              <button type="button" id="addLog" class="secondary">Add log</button>
+            </section>
+
+            <section id="autoclashConfig" class="config-panel">
+              <div class="section-title">AutoClash control panel</div>
+
+              <div class="three-columns">
+                <label>
+                  Enabled
+                  <select id="autoControlEnabled">
+                    <option value="false">false</option>
+                    <option value="true">true</option>
+                  </select>
+                </label>
+                <label>
+                  Panel channel
+                  <input id="autoControlChannelId" type="text" inputmode="numeric" />
+                </label>
+                <label>
+                  Send panel on start
+                  <select id="autoControlSendPanelOnStart">
+                    <option value="true">true</option>
+                    <option value="false">false</option>
+                  </select>
+                </label>
+              </div>
+
+              <label>
+                Resume after AutoClash updates
+                <select id="autoControlAutoUpdateEnabled">
+                  <option value="false">false</option>
+                  <option value="true">true</option>
+                </select>
+                <span class="field-hint">Resume active instances after automatic updates. If an old executable blocks the updater, close AutoClash and its background workers, retry the update, then reopen the instances.</span>
+              </label>
+
+              <label>
+                ADB path
+                <input id="autoControlAdbPath" type="text" />
+                <span class="field-hint">Tip: use the AutoClash ADB path, for example C:\Users\PC\Desktop\AUTOCOCBOT\AutoClash\adb\adb.exe</span>
+              </label>
+
+              <div id="autoInstancesList" class="logs-list"></div>
+              <button type="button" id="addAutoInstance" class="secondary">Add AutoClash exe</button>
+            </section>
+
+            <section id="autostartConfig" class="config-panel">
+              <div class="section-title">AutoStart</div>
+              <p class="config-intro">Choose which AutoClash instances this PC opens automatically and checks with ADB recovery. Disabled instances stay available for manual Discord buttons.</p>
+
+              <div id="autoStartInstancesList" class="autostart-list"></div>
+            </section>
+
+            <section id="mobileConfig" class="config-panel">
+              <div class="section-title">Mobile APK server</div>
+              <p class="config-intro">Configure the local server used by the Android APK. Use the Tailscale IP on the phone when you are outside the same Wi-Fi.</p>
+
+              <div class="three-columns">
+                <label>
+                  Enabled
+                  <select id="mobileControlEnabled">
+                    <option value="true">true</option>
+                    <option value="false">false</option>
+                  </select>
+                </label>
+                <label>
+                  Listen host
+                  <input id="mobileControlHost" type="text" placeholder="0.0.0.0" />
+                  <span class="field-hint">Use 0.0.0.0 to allow LAN/Tailscale access.</span>
+                </label>
+                <label>
+                  Port
+                  <input id="mobileControlPort" type="number" min="1" max="65535" step="1" placeholder="17891" />
+                </label>
+              </div>
+
+              <div class="mobile-url-card">
+                <div>
+                  <span class="field-hint">APK server URL</span>
+                  <strong id="mobileUrlPreview">http://127.0.0.1:17891</strong>
+                </div>
+                <span>Put this URL in the APK Settings tab.</span>
+              </div>
+
+              <p class="field-hint">After saving, the mobile server restarts with the new host/port. If Windows Firewall asks for permission, allow private network access.</p>
+            </section>
+
+            <section id="androidApkConfig" class="config-panel">
+              <div class="section-title">ACBot Android APK Monitor</div>
+              <p class="config-intro">Monitor the ACBot APK running inside an emulator. Each instance gets a Discord status panel with observed attacks, recent logs and screenshots. Optional Android Autostart can open an instance when Monitor starts, or run on demand with Start now. Monitoring alerts never restart apps.</p>
+              <div class="four-columns">
+                <label>Monitoring<select id="androidApkEnabled"><option value="false">Disabled</option><option value="true">Enabled</option></select></label>
+                <label>Alerts<select id="androidApkAlertsEnabled"><option value="true">Enabled</option><option value="false">Disabled</option></select></label>
+                <label>Check every (seconds)<input id="androidApkCheckSeconds" type="number" min="10" max="300" step="1" /></label>
+                <label>Inactivity threshold (minutes)<input id="androidApkIdleMinutes" type="number" min="1" max="240" step="1" /></label>
+              </div>
+              <p class="field-hint">No recent logs may mean the APK is waiting, paused or blocked. Attack counts start when the monitor attaches and are not ACBot's official totals. Two consecutive unhealthy checks are required before an alert.</p>
+              <div id="androidApkInstancesList" class="logs-list"></div>
+              <div class="path-row">
+                <button type="button" id="addAndroidApkInstance" class="secondary">Add APK instance</button>
+                <button type="button" id="refreshAndroidDevices" class="secondary">Find ADB devices</button>
+              </div>
+              <datalist id="androidAdbDevices"></datalist>
+              <p id="androidDevicesHint" class="field-hint">Uses the ADB executable selected in the AutoClash tab. Save changes and start the bot to begin monitoring.</p>
+            </section>
+
+            <section id="optionsConfig" class="config-panel">
+              <div class="section-title">Options</div>
+
+              <div class="four-columns">
+                <label>
+                  Check every
+                  <input id="checkIntervalSeconds" type="number" min="1" step="1" />
+                </label>
+                <label>
+                  Alert after
+                  <input id="stalledAfterSeconds" type="number" min="10" step="10" />
+                </label>
+                <label>
+                  Read lines
+                  <input id="maxLinesPerCheck" type="number" min="1" step="1" />
+                </label>
+                <label>
+                  Show lines
+                  <input id="maxStoredLines" type="number" min="1" step="1" />
+                </label>
+              </div>
+
+              <div class="two-columns">
+                <label>
+                  Live log thread
+                  <select id="liveLogEnabled">
+                    <option value="false">false</option>
+                    <option value="true">true</option>
+                  </select>
+                </label>
+                <label>
+                  Live interval
+                  <input id="liveLogIntervalSeconds" type="number" min="10" step="5" />
+                </label>
+              </div>
+
+              <label>
+                Live max thread messages
+                <input id="liveLogMaxThreadMessages" type="number" min="100" step="100" />
+                <span class="field-hint">When the live thread reaches this many bot messages, it is deleted and recreated.</span>
+              </label>
+
+              <div class="two-columns">
+                <label>
+                  CoC visual popup check
+                  <select id="cocVisualCheckEnabled">
+                    <option value="true">true</option>
+                    <option value="false">false</option>
+                  </select>
+                </label>
+                <label>
+                  Visual check interval
+                  <input id="cocVisualCheckIntervalSeconds" type="number" min="15" step="5" />
+                </label>
+              </div>
+              <span class="field-hint">Detects the Clash of Clans Connection lost popup and restarts CoC automatically.</span>
+
+              <div class="two-columns">
+                <label>
+                  ADB recovery stop delay
+                  <input id="adbRecoveryStopDelaySeconds" type="number" min="0" step="1" />
+                </label>
+                <label>
+                  ADB recovery start delay
+                  <input id="adbRecoveryStartDelaySeconds" type="number" min="0" step="1" />
+                </label>
+              </div>
+              <span class="field-hint">Seconds to wait before Stop and before Start after an ADB screencap error. Default: 8 and 5.</span>
+
+              <div class="two-columns">
+                <label>
+                  Screenshot retention hours
+                  <input id="screenshotRetentionHours" type="number" min="1" step="1" />
+                </label>
+                <label>
+                  Screenshot max size MB
+                  <input id="screenshotMaxSizeMb" type="number" min="100" step="100" />
+                </label>
+              </div>
+              <span class="field-hint">Automatically cleans the control-screenshots folder. Default: 24 hours or 1500 MB.</span>
+
+              <label>
+                Restart on stop
+                <select id="autoRestartMode">
+                  <option value="off">Off</option>
+                  <option value="auto">Auto start</option>
+                </select>
+                <span class="field-hint">No restart question is sent. Humanized breaks are ignored; sleeping hours only send a notice.</span>
+              </label>
+            </section>
+          </form>
+
+          <section class="panel console-panel">
+            <div class="console-head">
+              <div class="section-title">Console</div>
+              <button type="button" id="clearConsole">Clear</button>
+            </div>
+            <pre id="consoleOutput"></pre>
+          </section>
+        </section>
+      </section>
+
+      <section id="guidePanel" class="tab-panel">
+        <section class="panel guide-panel">
+          <div class="guide-hero">
+            <div>
+              <div class="section-title">Setup guide</div>
+              <h2>Create and connect your Discord bot</h2>
+              <p>Follow these steps on any PC where you want to run Discord Log Monitor.</p>
+            </div>
+          </div>
+
+          <div class="guide-grid">
+            <article>
+              <h3>1. Create the Discord bot</h3>
+              <ol>
+                <li>Open <strong>Discord Developer Portal</strong>.</li>
+                <li>Click <strong>New Application</strong>.</li>
+                <li>Name it <strong>Discord Log Monitor</strong>.</li>
+                <li>Go to <strong>Bot</strong>.</li>
+                <li>Copy or reset the bot token.</li>
+              </ol>
+              <p class="note">Never share the bot token. If it leaks, reset it.</p>
+            </article>
+
+            <article>
+              <h3>2. Invite it to your server</h3>
+              <ol>
+                <li>Go to <strong>OAuth2</strong> > <strong>URL Generator</strong>.</li>
+                <li>Select the <strong>bot</strong> scope.</li>
+                <li>Select the required permissions.</li>
+                <li>Open the generated URL.</li>
+                <li>Choose your server and authorize the bot.</li>
+              </ol>
+            </article>
+
+            <article>
+              <h3>3. Required permissions</h3>
+              <ul>
+                <li>View Channel</li>
+                <li>Send Messages</li>
+                <li>Embed Links</li>
+                <li>Attach Files</li>
+                <li>Create Public Threads</li>
+                <li>Send Messages in Threads</li>
+                <li>Mention Everyone</li>
+                <li>Manage Channels</li>
+                <li>Read Message History</li>
+              </ul>
+            </article>
+
+            <article>
+              <h3>4. Create channels</h3>
+              <p>Create one Discord channel per log, for example:</p>
+              <pre class="guide-code">ld9
+bluestacks</pre>
+              <p>The bot can rename them automatically:</p>
+              <pre class="guide-code">green circle = running
+red circle = stopped</pre>
+            </article>
+
+            <article>
+              <h3>5. Get channel IDs</h3>
+              <ol>
+                <li>Open Discord settings.</li>
+                <li>Go to <strong>Advanced</strong>.</li>
+                <li>Enable <strong>Developer Mode</strong>.</li>
+                <li>Right-click a channel.</li>
+                <li>Click <strong>Copy Channel ID</strong>.</li>
+              </ol>
+            </article>
+
+            <article>
+              <h3>6. Configure this app</h3>
+              <ul>
+                <li><strong>Discord</strong>: bot token and fallback channel.</li>
+                <li><strong>Logs</strong>: channel IDs and log folders.</li>
+                <li><strong>AutoClash</strong>: panel channel, exe list, and ADB.</li>
+                <li><strong>Options</strong>: intervals and line limits.</li>
+              </ul>
+            </article>
+
+            <article>
+              <h3>7. AutoClash panel</h3>
+              <ul>
+                <li>Set <strong>Enabled</strong> to true.</li>
+                <li>Paste the panel channel ID.</li>
+                <li>Add every AutoClash exe manually.</li>
+                <li>Choose <strong>PRO</strong> or <strong>BASIC</strong> for each exe.</li>
+                <li>Set the ADB device port for each emulator.</li>
+              </ul>
+            </article>
+
+            <article>
+              <h3>8. Recommended options</h3>
+              <pre class="guide-code">Check every: 5
+Alert after: 180
+Read lines: 10
+Show lines: 20
+Live log thread: true
+Live interval: 10
+Restart on stop: Off or Auto start</pre>
+            </article>
+
+            <article>
+              <h3>9. Start the bot</h3>
+              <ul>
+                <li>Click <strong>Save</strong>.</li>
+                <li>Click <strong>Start bot</strong>.</li>
+                <li>Check the app console.</li>
+                <li>Check Discord for log embeds and the AutoClash panel.</li>
+              </ul>
+            </article>
+
+            <article>
+              <h3>10. Troubleshooting</h3>
+              <ul>
+                <li>If the bot does not start, check the console panel.</li>
+                <li>If channels do not rename, check Manage Channels permission.</li>
+                <li>If everyone is not notified, check Mention Everyone permission.</li>
+                <li>If no lines appear, confirm the folder contains `.txt` logs.</li>
+                <li>If stats fail, check the exe path, ADB path, ADB device, and Attach Files permission.</li>
+              </ul>
+            </article>
+          </div>
+        </section>
+      </section>
+      <div class="watermark">Made for Nubito</div>
+    </main>
+
+    <script src="./bridge.js"></script><script src="./renderer.js"></script>
+  </body>
+</html>

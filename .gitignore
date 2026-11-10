@@ -1,0 +1,14 @@
+node_modules/
+data/*
+!data/.gitkeep
+.env
+.env.*
+!.env.example
+*.log
+*.bak-*
+*.tmp-*
+.DS_Store
+.codex_tmp/
+
+*.zip
+*.asar
