@@ -40,7 +40,7 @@ Suggested repository name: **web-monitor-acbot**.
 
 The workflow publishes only `web/`. It does **not** publish the PC service, credentials, profiles, screenshots or `data/`. The address will be `https://YOUR-USERNAME.github.io/web-monitor-acbot/`.
 
-GitHub Pages hosts the interface. A reachable **HTTPS PC-agent endpoint** is still required for remote control. No public tunnel, external account or domain has been created by this project. The current setup is local-only until that endpoint is configured.
+GitHub Pages hosts the interface. A reachable **HTTPS PC-agent endpoint** is still required for remote control. Remote access is optional. The repository does not contain your public agent address or tunnel credentials; runtime tunnel information stays in the ignored data folder. Use the temporary-tunnel launcher below to test remote access without a domain.
 
 For a tunnel, point it at `http://127.0.0.1:17942`. Keep the agent bound to loopback. In the private, ignored file `data/network.json`, add the exact public agent URL and the GitHub origin:
 
@@ -70,3 +70,20 @@ The dashboard now prioritizes emulator live view, with instance cards, six resou
 ### Reference-led violet gaming redesign
 
 The current interface uses the user-supplied visual reference: a cinematic violet header, a decorative sidebar character, a compact monitor strip, purple resource cards, instance controls on the left and emulator screen on the right. The Instances section is connected to configured devices. Performance charts use real snapshots collected since the page opened; they do not invent historical growth or percentage comparisons. Generated assets and their prompts are documented in design-assets.md. All seven automated tests pass; automatic browser preview remains unavailable because local browser use is disabled.
+
+## Temporary remote access without Tailscale
+
+On Windows x64, run these commands in the project folder:
+
+```sh
+npm run tunnel:install
+npm run remote
+```
+
+The installer downloads cloudflared from the official Cloudflare GitHub release and verifies its published SHA-256 digest. The executable stays under the ignored data/bin folder. You can also use Start Remote Web Monitor.cmd after installation.
+
+The launcher reuses the local agent if it is already running, otherwise starts it. It creates a temporary HTTPS tunnel, updates the exact allowed host and website origins in data/network.json, and prints PC AGENT ADDRESS. Open https://mrnubito.github.io/web-monitor-acbot/, paste that address, and enter your existing web access password. Runtime status is recorded only in data/remote-status.json.
+
+Keep the PC and remote launcher running while connected. Ctrl+C stops the tunnel; it does not stop a pre-existing local agent. The address changes each time a Quick Tunnel is created. This is a testing connection with no uptime guarantee, not a permanent production hostname. A stable address needs a named tunnel/domain or another configured hosting service. No router port-forwarding or Tailscale client is required on the visiting device.
+
+Official documentation: https://developers.cloudflare.com/tunnel/get-started/quick-tunnels/

@@ -9,6 +9,8 @@
   "scripts": {
     "start": "node service/server.cjs",
     "setup": "node service/setup.cjs",
-    "test": "node --test test/*.test.cjs"
+    "test": "node --test test/*.test.cjs",
+    "remote": "node service/remote.cjs",
+    "tunnel:install": "node service/install-tunnel.cjs"
   }
 }
