@@ -48,6 +48,7 @@ function createServer({auth=createAuth(host.dataDir)}={}){
       if(url.pathname==='/api/login'&&req.method==='POST'){const {password}=await body(req);return json(res,200,auth.login(password,req.socket.remoteAddress));}
       if(url.pathname.startsWith('/api/')){
         const token=auth.authorized(req);if(!token)return json(res,401,{error:'Sign in to your PC agent.'});
+        if(url.pathname==='/api/password'&&req.method==='POST'){const {currentPassword,newPassword}=await body(req);if(typeof newPassword!=='string'||newPassword.length<12||newPassword.length>256)throw Error('Use a password or phrase with 12 to 256 characters.');auth.login(currentPassword,req.socket.remoteAddress);auth.setPassword(newPassword);return json(res,200,auth.login(newPassword,req.socket.remoteAddress));}
         if(url.pathname==='/api/logout'&&req.method==='POST'){auth.logout(token);return json(res,200,{ok:true});}
         if(url.pathname==='/api/accounts'&&req.method==='GET')return json(res,200,accountHistory.view({instance:url.searchParams.get('instance')||undefined,range:['today','week','all'].includes(url.searchParams.get('range'))?url.searchParams.get('range'):'today',profile:url.searchParams.get('profile')||undefined}));
         if(url.pathname==='/api/telemetry'&&req.method==='GET')return json(res,200,await telemetry());

@@ -103,3 +103,9 @@ Live view now streams continuous ADB H.264 video into a browser MediaSource play
 ### Account Statistics
 
 The agent polls log changes and cumulative counters every two seconds, independently of browser connections, and stores its own history in ignored `data/account-history.db`. A confirmed profile-load log identifies each account, scoped by instance. New history begins at the initial counter baseline; no old instance totals are imported. Intervals spanning profile switches, missing logs, counter resets or agent interruptions are excluded from account totals and shown as Unassigned where a positive difference can be recovered. Account totals are estimates because ACBot saves global counters periodically. Today and Last 7 days use the PC local timezone and sample observation times. Keep the PC agent running to collect history.
+
+### Fixed address and memorable sign-in
+
+Install and sign in to Tailscale on the PC, then run `npm run funnel` and complete any Funnel enablement link printed by Tailscale. This publishes the password-protected agent on the PC’s stable HTTPS ts.net hostname; visitors do not need the Tailscale client. Keep the agent running. The browser recognizes its own ts.net address, so opening that URL directly only requires the password. Connection settings lets you change the saved agent address.
+
+Open the account menu, sign in, and use **Change password** to choose a memorable phrase of 12–256 characters. The current password is required; changing it signs out other sessions. Only the agent address is remembered in local storage. Passwords are never stored in browser storage or source control.

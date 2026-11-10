@@ -12,6 +12,7 @@
     "test": "node --test test/*.test.cjs",
     "remote": "node service/remote.cjs",
     "tunnel:install": "node service/install-tunnel.cjs",
-    "lan": "node service/server.cjs --lan"
+    "lan": "node service/server.cjs --lan",
+    "funnel": "node service/funnel.cjs"
   }
 }

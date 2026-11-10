@@ -48,7 +48,7 @@ test('authenticated API, secrets, profiles, conflicts and static-only serving',a
   view=await api(route);const outside=JSON.parse(fs.readFileSync(profilePath));outside.ATTACK_MIN_GOLD=500;fs.writeFileSync(profilePath,JSON.stringify(outside));
   const conflict=await api(route,{session:view.data.session,changes:{ATTACK_MIN_GOLD:300}});assert.equal(conflict.status,409);assert.equal(JSON.parse(fs.readFileSync(profilePath)).ATTACK_MIN_GOLD,500);
   const wrongType=await api(route,{session:view.data.session,changes:{UPGRADE_WALLS:'yes'}});assert.equal(wrongType.status,400);
-  assert.equal((await api('/api/logout',{})).status,200);assert.equal((await api('/api/config')).status,401);
+  assert.equal((await api('/api/password',{currentPassword:'wrong',newPassword:'a-new-test-passphrase'})).status,401);assert.equal((await api('/api/config')).status,200);assert.equal((await api('/api/password',{currentPassword:'another-strong-test-password',newPassword:'short'})).status,400);const changed=await api('/api/password',{currentPassword:'another-strong-test-password',newPassword:'a-new-test-passphrase'});assert.equal(changed.status,200);assert.ok(changed.data.token);assert.equal((await api('/api/config')).status,401);const newHeaders={Authorization:'Bearer '+changed.data.token};assert.equal((await request('/api/config',{headers:newHeaders})).status,200);assert.equal((await request('/api/logout',{method:'POST',headers:newHeaders})).status,200);
 });
 test('statistics read JSON and SQLite including the latest recorded day',()=>{
   const root=path.join(temp,'stats-fixture'),dir=path.join(root,'logs','stats');fs.mkdirSync(dir,{recursive:true});
