@@ -1,4 +1,4 @@
-import { runtimeFromStats, runtimeAt } from './runtime.js';
+import { runtimeFromStats, runtimeAt } from './runtime.js?v=2';
 import { createPerformanceHistory, performanceSvg } from './performance-chart.js';
 import { createLiveView } from './live-view.js';
 import { icon, hydrateIcons } from './icons.js';
