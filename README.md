@@ -109,3 +109,35 @@ The agent polls log changes and cumulative counters every two seconds, independe
 Install and sign in to Tailscale on the PC, then run `npm run funnel` and complete any Funnel enablement link printed by Tailscale. This publishes the password-protected agent on the PC’s stable HTTPS ts.net hostname; visitors do not need the Tailscale client. Keep the agent running. The browser recognizes its own ts.net address, so opening that URL directly only requires the password. Connection settings lets you change the saved agent address.
 
 Open the account menu, sign in, and use **Change password** to choose a memorable phrase of 12–256 characters. The current password is required; changing it signs out other sessions. Only the agent address is remembered in local storage. Passwords are never stored in browser storage or source control.
+
+### Windows portable preview
+
+Run `npm run portable:build` on Windows to generate a clean ZIP under ignored `releases/`. The builder downloads the pinned official Node.js Windows x64 runtime, verifies it against the published SHA-256 checksum, includes its license and compiles native start/stop launchers with the Windows .NET Framework C# compiler. Only service, web and portable source folders are packaged; runtime user data, environment files, repository history and tests are excluded.
+
+Users extract the ZIP and run **ACBot Web Monitor.exe**. The local, token-protected first-run assistant guides ACBot folder discovery, ADB/device selection, password creation, optional Tailscale setup, diagnostics and optional startup at Windows sign-in. The launcher remains in the background, prevents duplicate starts and preserves each portable copy’s own data. **Stop ACBot Web Monitor.exe** stops that copy without stopping ACBot or other monitors.
+
+`node scripts/smoke-portable.cjs releases/<package>.zip` verifies a clean extracted package using the bundled runtime and native launchers, with disposable fixture data, then checks stop/restart persistence and exclusion of private files. A clean Windows VM test and real emulator/remote onboarding on a second PC are still recommended before a public release.
+
+### In-app portable updates
+
+The Updates page checks official GitHub Releases for a newer Windows portable ZIP and its matching SHA-256 file. Stable releases are checked by default; previews are opt-in. Installation is supported in configured portable copies, not Git checkouts. The agent verifies the checksum, archive paths and manifest before stopping. A detached worker backs up files and data, replaces managed program files, restarts and checks startup. User data remains in place. Failed updates restore the old program; interrupted updates recover when the launcher is reopened. Restore previous version becomes available after the first in-app update. Two recent backup/cache folders are retained, together with still referenced active and previous jobs.
+
+For publishing: update package.json, commit the source, then run Build portable release in GitHub Actions with a matching tag. Leave Publish unchecked for a test build, or enable it to create the Release after tests and native smoke tests pass. Every Release must contain ACBot-Web-Monitor-<version>-windows-x64.zip and its .zip.sha256 file. Pushing source alone does not create a downloadable application update. Never upload a configured portable folder.
+
+node scripts/smoke-update.cjs releases/<package>.zip tests verified staging, native restart, installation and explicit rollback in a disposable copy, preserving the password hash and history sentinel.
+
+### Agent reliability
+
+The portable launcher supervises its own agent process, retries crashed starts with bounded exponential delay, and restarts after repeated failed HTTP health checks. Silent --background launches are supported. When Windows startup is enabled, an interactive per-user scheduled task runs every 2 minutes to recover a missing launcher. Stop pauses recovery until a manual Start. A private ownership key permits safe handoff of an orphaned agent, and a launcher lock prevents duplicate supervisors. Logs are bounded under data/supervisor.log and data/agent.log. Task registration status is saved in data/recovery-task.json.
+
+Remote mode checks Tailscale and Funnel every minute, reconfiguring a missing tunnel only when signed in and no conflicting service is detected. NeedsLogin is reported in data/remote-health.json; the user must authenticate again. The monitor cannot keep a sleeping or powered-off PC accessible.
+
+The smoke-recovery script verifies a child crash, parent recovery, port preservation and the intentional-stop pause using a disposable extracted package.
+
+### Native ACBot per-account statistics
+
+New ACBot versions store daily account counters in profile_daily and Town Hall metadata in profile_info inside logs/stats/stats.db. Account stats reads these tables in read-only mode and uses them per instance when available, including potions_used. Older instances fall back to labeled monitor estimates. Native totals and estimates are never combined for the same instance. The Source selector can show Legacy estimates separately; observed turn details remain labeled as estimates because ACBot provides daily totals rather than turn-level history. Profile Studio also prefers the recorded Town Hall metadata.
+
+### Reading Account stats on mobile
+
+Phones show one card per account, with runtime, attacks and loot up front. More statistics expands exact loot amounts, donations, upgrades, research, potions, Builder Base and star counts. Desktop keeps the full table. Automatic account refresh now runs every 15 seconds, updates existing keyed DOM nodes only, preserves expanded sections and scroll position, and leaves the previous data visible during transient errors. Pause updates stops automatic requests; Refresh works while paused. Filter changes cancel stale responses.

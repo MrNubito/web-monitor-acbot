@@ -1,0 +1,22 @@
+const fs=require('fs'),path=require('path'),os=require('os'),{spawn,execFileSync}=require('child_process');
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));async function waitFor(test){for(let n=0;n<160;n++){try{const result=await test();if(result)return result;}catch{}await sleep(100);}throw Error('Recovery smoke test timed out.');}
+async function main(){
+ const archive=path.resolve(process.argv[2]||'');if(!fs.existsSync(archive))throw Error('Pass a portable ZIP path.');const temp=fs.mkdtempSync(path.join(os.tmpdir(),'ACBot Recovery QA '));let bundle,state;
+ const control=async(route,body)=>{const response=await fetch('http://127.0.0.1:'+state.controlPort+'/api/'+route,{method:body===undefined?'GET':'POST',headers:{'X-Setup-Token':state.token,'Content-Type':'application/json'},body:body===undefined?undefined:JSON.stringify(body)});const data=await response.json();if(!response.ok)throw Error(data.error);return data;};
+ try{
+  execFileSync('tar.exe',['-xf',archive,'-C',temp],{windowsHide:true});bundle=path.join(temp,fs.readdirSync(temp)[0]);const data=path.join(bundle,'data'),stateFile=path.join(data,'launcher-state.json'),lockFile=path.join(data,'launcher.lock');
+  const start=background=>{const child=spawn(path.join(bundle,'ACBot Web Monitor.exe'),background?['--background']:[],{env:{...process.env,ACBOT_NO_BROWSER:'1',PORT:'19242'},windowsHide:true,detached:true,stdio:'ignore'});child.unref();};
+  start(false);state=await waitFor(()=>fs.existsSync(stateFile)&&JSON.parse(fs.readFileSync(stateFile,'utf8')));
+  const fixture=path.join(temp,'Fixture ACBot');fs.mkdirSync(path.join(fixture,'profiles'),{recursive:true});fs.writeFileSync(path.join(fixture,'ACBot.exe'),'fixture');await control('finish',{instances:[{root:fixture,label:'Demo'}],adb:'',password:'recovery-test-password',remote:false,lan:false,startup:false});
+  const pids=()=>fs.readFileSync(path.join(data,'supervisor.log'),'utf8').split('\n').filter(Boolean).map(s=>JSON.parse(s)).filter(s=>s.event==='spawn').map(s=>s.pid);
+  const first=pids()[0];process.kill(first);await waitFor(()=>pids().length>=2);await waitFor(async()=>{const h=await control('health');return h.supervision?.running&&(await fetch(state.dashboard+'/api/status')).status===401;});
+  await sleep(2300);const oldParent=JSON.parse(fs.readFileSync(lockFile,'utf8')).pid,oldChild=pids().at(-1);process.kill(oldParent);await sleep(300);start(true);
+  state=await waitFor(()=>{const next=JSON.parse(fs.readFileSync(stateFile,'utf8'));return next.token!==state.token&&next;});await waitFor(async()=>{const h=await control('health');return h.supervision?.running&&(await fetch(state.dashboard+'/api/status')).status===401;});await waitFor(()=>pids().at(-1)!==oldChild);
+  const events=fs.readFileSync(path.join(data,'supervisor.log'),'utf8');let oldAlive=false;try{process.kill(oldChild,0);oldAlive=true;}catch{}if(oldAlive&&!events.includes('recovering-orphan-agent'))throw Error('The previous agent is still alive without an ownership handoff.');
+  const child=spawn(path.join(bundle,'Stop ACBot Web Monitor.exe'),[],{windowsHide:true,detached:true,stdio:'ignore'});child.unref();await waitFor(()=>!fs.existsSync(stateFile));start(true);await sleep(600);if(fs.existsSync(stateFile))throw Error('Background recovery ignored the intentional stop.');
+  start(false);state=await waitFor(()=>fs.existsSync(stateFile)&&JSON.parse(fs.readFileSync(stateFile,'utf8')));await waitFor(async()=>{const h=await control('health');return h.supervision?.running&&(await fetch(state.dashboard+'/api/status')).status===401;});await control('stop',{});await waitFor(()=>!fs.existsSync(stateFile));state=null;
+  console.log(JSON.stringify({passed:true,crashedChildRestarted:true,orphanRecovered:true,samePortPreserved:true,intentionalStopRespected:true,manualStartResumes:true},null,2));
+ }catch(error){if(bundle)for(const file of ['supervisor.log','launcher-error.log','agent.log'])try{console.error(file+'\n'+fs.readFileSync(path.join(bundle,'data',file),'utf8').slice(-5000));}catch{}throw error;}
+ finally{if(bundle)try{const file=path.join(bundle,'data','launcher-state.json');if(fs.existsSync(file)){state=JSON.parse(fs.readFileSync(file,'utf8'));await control('stop',{});await sleep(500);}}catch{}const target=path.resolve(temp);if(!target.startsWith(path.resolve(os.tmpdir())+path.sep))throw Error('Unsafe QA cleanup.');fs.rmSync(target,{recursive:true,force:true,maxRetries:20,retryDelay:200});}
+}
+main().catch(error=>{console.error(error.stack);process.exitCode=1;});

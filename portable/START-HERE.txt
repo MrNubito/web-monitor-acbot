@@ -1,0 +1,23 @@
+ACBot Web Monitor - Portable preview for Windows x64
+Made by Nubito
+
+1. Extract the entire ZIP to a folder you can keep (not inside the ZIP viewer).
+2. Double-click ACBot Web Monitor.exe. No Node.js installation is required.
+3. Follow the browser assistant to choose your ACBot folders and ADB devices, create your password, and select local or remote access.
+4. Keep this PC running. Closing the browser does not stop the agent.
+5. Use Stop ACBot Web Monitor.exe to stop this portable copy.
+
+Remote access is optional. It uses your own Tailscale account; the assistant can install Tailscale and show its sign-in/enablement links. Windows may ask you to approve installation.
+
+Each portable folder has its own private data directory. Never share your folder after configuring it: data contains your password hash, paths, sessions and statistics history. Share the original clean ZIP instead. Keep data when upgrading.
+
+ACBot, the game and emulators are not included. Install them separately and enable emulator ADB access. The assistant only scans common folders; use Search another folder or Add manually if needed.
+
+If setup does not open: open portable/launcher.cjs with the bundled runtime using the diagnostic command below, or inspect data/launcher-error.log. If Windows disables VBScript, run this command from the extracted folder:
+runtime\node.exe portable\launcher.cjs
+
+Preview limitations: unsigned Windows executable (built for .NET Framework, normally included in Windows 10/11); Windows may show warnings; Tailscale may require administrator approval and DNS propagation. This preview has not been certified on a clean Windows VM.
+
+Updates: open Updates in the dashboard. Check releases, then choose Download & install. The monitor verifies the release checksum, backs up your current files, restarts and checks the new version. Settings, password and statistics remain in data. Restore previous version is available after the first in-app update. Preview releases require the Include preview releases checkbox. If a restart is interrupted, open ACBot Web Monitor.exe to recover. Only portable releases from the official repository are supported.
+
+Reliability: the launcher monitors and restarts the agent after crashes or repeated failed health checks. With Windows startup enabled, a silent per-user scheduled task also checks every 2 minutes that the launcher is running. Stop ACBot Web Monitor.exe pauses automatic recovery until you open Start again. Windows task registration may require permission; see data/recovery-task.json and data/supervisor.log. Remote connection checks can restore a missing Funnel configuration while Tailscale is connected. If Tailscale signs out, sign in again; the monitor does not bypass account authentication. Your PC must remain on and awake.

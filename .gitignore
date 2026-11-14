@@ -12,3 +12,5 @@ data/*
 
 *.zip
 *.asar
+
+releases/

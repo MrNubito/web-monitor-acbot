@@ -1,6 +1,6 @@
 {
   "name": "web-monitor-acbot",
-  "version": "0.1.0",
+  "version": "0.3.0",
   "private": true,
   "description": "Independent ACBot web dashboard and local PC agent",
   "engines": {
@@ -13,6 +13,9 @@
     "remote": "node service/remote.cjs",
     "tunnel:install": "node service/install-tunnel.cjs",
     "lan": "node service/server.cjs --lan",
-    "funnel": "node service/funnel.cjs"
-  }
+    "funnel": "node service/funnel.cjs",
+    "portable:build": "node scripts/build-portable.cjs",
+    "portable:start": "node portable/launcher.cjs"
+  },
+  "author": "Nubito"
 }

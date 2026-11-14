@@ -1,0 +1,60 @@
+name: Build portable release
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Version tag matching package.json
+        required: true
+        type: string
+      publish:
+        description: Publish the tested ZIP and checksum to GitHub Releases
+        default: false
+        type: boolean
+permissions:
+  contents: write
+jobs:
+  portable:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    env:
+      RELEASE_TAG: ${{ inputs.tag }}
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7.1.0
+        with:
+          node-version: '26.13.0'
+      - name: Validate release version
+        run: node -e "if(process.env.RELEASE_TAG!=='v'+require('./package.json').version)throw Error('Tag must match package.json version')"
+      - name: Run tests
+        run: npm test
+      - name: Build clean Windows portable
+        run: npm run portable:build
+      - name: Test first run and restart
+        run: |
+          $archive = (Get-ChildItem releases -Filter '*.zip' | Select-Object -First 1).FullName
+          node scripts/smoke-portable.cjs $archive
+      - name: Test update and rollback
+        run: |
+          $archive = (Get-ChildItem releases -Filter '*.zip' | Select-Object -First 1).FullName
+          node scripts/smoke-update.cjs $archive
+      - name: Test automatic recovery
+        run: |
+          $archive = (Get-ChildItem releases -Filter '*.zip' | Select-Object -First 1).FullName
+          node scripts/smoke-recovery.cjs $archive
+      - uses: actions/upload-artifact@v7.0.2
+        with:
+          name: windows-portable
+          path: |
+            releases/*.zip
+            releases/*.zip.sha256
+      - name: Publish GitHub Release
+        if: inputs.publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $files = @(Get-ChildItem releases -File | Where-Object { $_.Name -match '\.zip(\.sha256)?$' } | ForEach-Object { $_.FullName })
+          $arguments = @('release','create',$env:RELEASE_TAG,'--target',"$env:GITHUB_SHA",'--title',"ACBot Web Monitor $env:RELEASE_TAG",'--generate-notes')
+          if ($env:RELEASE_TAG.Contains('-')) { $arguments += '--prerelease' }
+          & gh @arguments @files

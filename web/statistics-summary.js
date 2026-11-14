@@ -1,8 +1,8 @@
-const statisticImages={walls_upgraded:'resource-walls.png',donations_completed:'resource-donations.png',bb_attacks:'resource-attacks.png',bb_walls_upgraded:'resource-walls.png',obstacles_removed:'resource-obstacles.png',upgrades_done:'resource-upgrades.png',research_done:'resource-research.png'};
+const statisticImages={walls_upgraded:'resource-walls.png',donations_completed:'resource-donations.png',bb_attacks:'resource-attacks.png',bb_walls_upgraded:'resource-walls.png',obstacles_removed:'resource-obstacles.png',upgrades_done:'resource-upgrades.png',research_done:'resource-research.png',potions_used:'resource-research.png'};
 export const miscStatistics=[
  ['Walls upgraded','walls_upgraded','wall'],['Donations completed','donations_completed','donate'],
  ['Builder Base attacks','bb_attacks','swords'],['Builder Base walls upgraded','bb_walls_upgraded','wall'],
- ['Obstacles removed','obstacles_removed','tree'],['Upgrades done','upgrades_done','hammer'],['Research done','research_done','flask']
+ ['Obstacles removed','obstacles_removed','tree'],['Upgrades done','upgrades_done','hammer'],['Research done','research_done','flask'],['Potions used','potions_used','flask']
 ];
 const number=value=>typeof value==='number'&&Number.isFinite(value)&&value>=0?new Intl.NumberFormat('en-US').format(value):'—';
 export function statisticsSummary(values={}){

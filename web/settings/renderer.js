@@ -20,9 +20,6 @@ const fields = [
   "autoControlSendPanelOnStart",
   "autoControlAutoUpdateEnabled",
   "autoControlAdbPath",
-  "mobileControlEnabled",
-  "mobileControlHost",
-  "mobileControlPort",
   "androidApkEnabled",
   "androidApkAlertsEnabled",
   "androidApkCheckSeconds",
@@ -36,7 +33,6 @@ const statusText = document.getElementById("statusText");
 const logsList = document.getElementById("logsList");
 const autoInstancesList = document.getElementById("autoInstancesList");
 const autoStartInstancesList = document.getElementById("autoStartInstancesList");
-const mobileUrlPreview = document.getElementById("mobileUrlPreview");
 
 let logs = [];
 let autoInstances = [];
@@ -58,7 +54,6 @@ function setConfig(config) {
   for (const field of fields) {
     document.getElementById(field).value = config[field] || "";
   }
-  updateMobileUrlPreview();
   document.getElementById("autoStartBot").checked = String(config.autoStartBot || "false") === "true";
   logs = Array.isArray(config.logs) ? config.logs : [];
   autoInstances = parseAutoInstances(config.autoControlInstances || "");
@@ -68,14 +63,6 @@ function setConfig(config) {
   try { androidApkInstances = JSON.parse(config.androidApkInstances || "[]"); } catch { androidApkInstances = []; }
   renderAndroidApkInstances();
   setRunning(Boolean(config.botRunning));
-}
-
-function updateMobileUrlPreview() {
-  if (!mobileUrlPreview) return;
-  const host = document.getElementById("mobileControlHost")?.value.trim() || "0.0.0.0";
-  const port = document.getElementById("mobileControlPort")?.value.trim() || "17891";
-  const displayHost = host === "0.0.0.0" ? "YOUR_TAILSCALE_IP" : host;
-  mobileUrlPreview.textContent = `http://${displayHost}:${port}`;
 }
 
 function getAndroidApkInstances() {
@@ -551,9 +538,6 @@ document.querySelectorAll(".config-tab-button").forEach((button) => {
   });
 });
 
-["mobileControlHost", "mobileControlPort"].forEach((field) => {
-  document.getElementById(field)?.addEventListener("input", updateMobileUrlPreview);
-});
 
 window.monitorApp.onBotLog(appendConsole);
 window.monitorApp.onBotStatus((status) => setRunning(status.running));

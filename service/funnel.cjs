@@ -12,7 +12,7 @@ async function main(){
  const target=path.join(dataDir,'network.json');let previous={};try{previous=JSON.parse(fs.readFileSync(target,'utf8'));}catch{}
  fs.writeFileSync(target,JSON.stringify({...previous,publicUrl:url,allowedOrigins:[...new Set([...(previous.allowedOrigins||[]),'https://mrnubito.github.io',url])]},null,2)+'\n');
  console.log('Agent address configured: '+url);
- try{console.log(await execute(['funnel','--bg','--yes','http://127.0.0.1:17942']));}
+ try{console.log(await execute(['funnel','--bg','--yes','http://127.0.0.1:'+Number(process.env.PORT||17942)]));}
  catch(error){console.log('If Tailscale prints an enablement link, open it and enable Funnel, then run this command again.');throw error;}
  console.log('Open '+url+' directly. Your ACBot password is still required. Keep the PC agent running.');
 }

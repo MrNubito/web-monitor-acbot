@@ -60,7 +60,6 @@
               <button type="button" class="config-tab-button" data-config-tab="logsConfig">Logs</button>
               <button type="button" class="config-tab-button" data-config-tab="autoclashConfig">AutoClash</button>
               <button type="button" class="config-tab-button" data-config-tab="autostartConfig">AutoStart</button>
-              <button type="button" class="config-tab-button" data-config-tab="mobileConfig">Mobile</button>
               <button type="button" class="config-tab-button" data-config-tab="androidApkConfig">Android APK</button>
               <button type="button" class="config-tab-button" data-config-tab="optionsConfig">Options</button>
             </nav>
@@ -134,40 +133,6 @@
               <p class="config-intro">Choose which AutoClash instances this PC opens automatically and checks with ADB recovery. Disabled instances stay available for manual Discord buttons.</p>
 
               <div id="autoStartInstancesList" class="autostart-list"></div>
-            </section>
-
-            <section id="mobileConfig" class="config-panel">
-              <div class="section-title">Mobile APK server</div>
-              <p class="config-intro">Configure the local server used by the Android APK. Use the Tailscale IP on the phone when you are outside the same Wi-Fi.</p>
-
-              <div class="three-columns">
-                <label>
-                  Enabled
-                  <select id="mobileControlEnabled">
-                    <option value="true">true</option>
-                    <option value="false">false</option>
-                  </select>
-                </label>
-                <label>
-                  Listen host
-                  <input id="mobileControlHost" type="text" placeholder="0.0.0.0" />
-                  <span class="field-hint">Use 0.0.0.0 to allow LAN/Tailscale access.</span>
-                </label>
-                <label>
-                  Port
-                  <input id="mobileControlPort" type="number" min="1" max="65535" step="1" placeholder="17891" />
-                </label>
-              </div>
-
-              <div class="mobile-url-card">
-                <div>
-                  <span class="field-hint">APK server URL</span>
-                  <strong id="mobileUrlPreview">http://127.0.0.1:17891</strong>
-                </div>
-                <span>Put this URL in the APK Settings tab.</span>
-              </div>
-
-              <p class="field-hint">After saving, the mobile server restarts with the new host/port. If Windows Firewall asks for permission, allow private network access.</p>
             </section>
 
             <section id="androidApkConfig" class="config-panel">

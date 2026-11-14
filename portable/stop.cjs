@@ -1,0 +1,3 @@
+const fs=require('fs'),path=require('path');
+const {request}=require('./launcher.cjs');
+(async()=>{const dir=path.join(__dirname,'../data');fs.mkdirSync(dir,{recursive:true});fs.writeFileSync(path.join(dir,'stopped.json'),JSON.stringify({at:Date.now(),reason:'Stopped by user'})+'\n');const file=path.join(dir,'launcher-state.json');if(!fs.existsSync(file)){console.log('This portable copy is not running.');return;}const state=JSON.parse(fs.readFileSync(file,'utf8'));const response=await request(state,'/api/stop?pause=1','POST');if(response.status!==200)throw Error('Could not stop this portable copy.');console.log('ACBot Web Monitor stopped.');})().catch(error=>{console.error(error.message);process.exitCode=1;});

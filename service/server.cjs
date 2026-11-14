@@ -6,7 +6,9 @@ const {describeProfile,validateChange,readonly}=require('./profile-fields.cjs');
 const {lanHosts}=require('./network.cjs');
 const {createVideoService}=require('./video.cjs');
 const {createAccountHistory}=require('./account-history.cjs');
+const {createUpdater}=require('./updates.cjs');
 const {createTelemetryReader}=require('./telemetry.cjs');
+const {readNativeAccounts,accountView}=require('./native-account-stats.cjs');
 const webDir=path.resolve(__dirname,'../web');
 const defaults='DISCORD_TOKEN=\nLOG_FILES=\nAUTOCONTROL_INSTANCES=\nANDROID_APK_INSTANCES=[]\nANDROID_APK_ENABLED=false\nAPP_AUTOSTART_BOT=false\nAUTOCONTROL_ENABLED=false\nMOBILE_CONTROL_ENABLED=false\nMOBILE_CONTROL_HOST=127.0.0.1\nMOBILE_CONTROL_PORT=17942\n';
 if(!fs.existsSync(path.join(host.dataDir,'.env')))fs.writeFileSync(path.join(host.dataDir,'.env'),defaults,{mode:0o600});
@@ -14,6 +16,9 @@ engine.ensureRuntimeFiles();
 const secretKey=key=>/token|password|secret|apiKey/i.test(key);
 function createServer({auth=createAuth(host.dataDir)}={}){
   const profileSessions=new Map();
+  const ownerFile=path.join(host.dataDir,'agent-owner.key');if(!fs.existsSync(ownerFile))try{fs.writeFileSync(ownerFile,crypto.randomBytes(32).toString('hex'),{flag:'wx',mode:0o600});}catch{}
+  const ownerKey=fs.readFileSync(ownerFile,'utf8').trim();
+  const updater=createUpdater({root:path.resolve(__dirname,'..'),dataDir:host.dataDir});
   const video=createVideoService({engine});
   const accountHistory=createAccountHistory({file:path.join(host.dataDir,'account-history.db'),engine,readStats});accountHistory.start();
   let telemetryReader;
@@ -30,7 +35,8 @@ function createServer({auth=createAuth(host.dataDir)}={}){
     const snapshot=editor.readProfile(root,decodeURIComponent(profile));
     const sid=crypto.randomBytes(20).toString('hex');
     profileSessions.set(sid,{...snapshot,root,profile:decodeURIComponent(profile),instanceId:id,owner:token,expires:Date.now()+30*60000});
-    return {session:sid,profile:decodeURIComponent(profile),...describeProfile(snapshot.config)};
+    const view=describeProfile(snapshot.config),recorded=readNativeAccounts(root,{range:'all'}).info[decodeURIComponent(profile)];if(recorded?.townHall)view.metadata.townHall=recorded.townHall;
+    return {session:sid,profile:decodeURIComponent(profile),...view};
   }
   const server=http.createServer(async(req,res)=>{
     try{
@@ -45,12 +51,18 @@ function createServer({auth=createAuth(host.dataDir)}={}){
       if(origin&&origin!==url.origin&&!allowedOrigins.has(origin))return json(res,403,{error:'This website origin is not allowed.'});
       if(origin){res.setHeader('Access-Control-Allow-Origin',origin);res.setHeader('Vary','Origin');}
       if(req.method==='OPTIONS'){res.writeHead(204,{'Access-Control-Allow-Headers':'Content-Type, Authorization','Access-Control-Allow-Methods':'GET, POST, OPTIONS'});return res.end();}
+      if(url.pathname==='/api/local-agent'){const key=String(req.headers['x-agent-owner']||'');const local=['127.0.0.1','::1','::ffff:127.0.0.1'].includes(req.socket.remoteAddress);if(!local||key.length!==ownerKey.length||!crypto.timingSafeEqual(Buffer.from(key),Buffer.from(ownerKey)))return json(res,401,{error:'Unknown agent owner.'});if(req.method==='GET')return json(res,200,{app:'ACBotAgent',root:fs.realpathSync(path.resolve(__dirname,'..'))});if(req.method==='POST'&&server.stopGracefully){json(res,200,{ok:true});setImmediate(server.stopGracefully);return;}}
+      if(url.pathname==='/api/update-health'&&req.method==='GET'){const result=updater.health(url.searchParams.get('job'));return json(res,result?200:401,result||{error:'Unknown update job.'});}
       if(url.pathname==='/api/login'&&req.method==='POST'){const {password}=await body(req);return json(res,200,auth.login(password,req.socket.remoteAddress));}
       if(url.pathname.startsWith('/api/')){
         const token=auth.authorized(req);if(!token)return json(res,401,{error:'Sign in to your PC agent.'});
+        if(url.pathname==='/api/updates'&&req.method==='GET')return json(res,200,updater.status());
+        if(url.pathname==='/api/updates/check'&&req.method==='POST'){const input=await body(req);return json(res,200,await updater.check({includePreview:input.includePreview===true,force:input.force===true}));}
+        if(url.pathname==='/api/updates/install'&&req.method==='POST'){const input=await body(req);return json(res,200,await updater.prepare('install',{expectedVersion:input.version}));}
+        if(url.pathname==='/api/updates/rollback'&&req.method==='POST'){const input=await body(req);return json(res,200,await updater.prepare('rollback',{expectedVersion:input.version}));}
         if(url.pathname==='/api/password'&&req.method==='POST'){const {currentPassword,newPassword}=await body(req);if(typeof newPassword!=='string'||newPassword.length<12||newPassword.length>256)throw Error('Use a password or phrase with 12 to 256 characters.');auth.login(currentPassword,req.socket.remoteAddress);auth.setPassword(newPassword);return json(res,200,auth.login(newPassword,req.socket.remoteAddress));}
         if(url.pathname==='/api/logout'&&req.method==='POST'){auth.logout(token);return json(res,200,{ok:true});}
-        if(url.pathname==='/api/accounts'&&req.method==='GET')return json(res,200,accountHistory.view({instance:url.searchParams.get('instance')||undefined,range:['today','week','all'].includes(url.searchParams.get('range'))?url.searchParams.get('range'):'today',profile:url.searchParams.get('profile')||undefined}));
+        if(url.pathname==='/api/accounts'&&req.method==='GET')return json(res,200,accountView({engine,history:accountHistory,instance:url.searchParams.get('instance')||undefined,range:['today','week','all'].includes(url.searchParams.get('range'))?url.searchParams.get('range'):'today',profile:url.searchParams.get('profile')||undefined,source:url.searchParams.get('source')==='legacy'?'legacy':'auto'}));
         if(url.pathname==='/api/telemetry'&&req.method==='GET')return json(res,200,await telemetry());
         if(url.pathname==='/api/status'&&req.method==='GET'){
           const config=engine.mobileConfig();
@@ -81,9 +93,11 @@ function createServer({auth=createAuth(host.dataDir)}={}){
         const profileList=url.pathname.match(/^\/api\/instances\/([^/]+)\/profiles$/);
         if(profileList&&req.method==='GET'){
           const selected=instance(profileList[1]),root=engine.resolveAutoClashRootPath(selected);
+          const profileInfo=readNativeAccounts(root,{range:'all'}).info;
           const profiles=engine.listMobileProfiles(selected).map(item=>{
             let metadata={townHall:null,builderHall:null};
             if(item.available)try{metadata=describeProfile(editor.readProfile(root,item.id).config).metadata;}catch{}
+            if(profileInfo[item.id]?.townHall)metadata.townHall=profileInfo[item.id].townHall;
             return {...item,metadata,label:item.name+(metadata.townHall?' · TH '+metadata.townHall:'')};
           });return json(res,200,{profiles});
         }
@@ -130,6 +144,8 @@ if(require.main===module){
   const lan=process.argv.includes('--lan');
   server.listen(port,lan?'0.0.0.0':'127.0.0.1',()=>{console.log('Web Monitor ACBot: http://127.0.0.1:'+port);if(lan)for(const address of lanHosts())console.log('Local network: http://'+address+':'+port);});
   let stopping=false;const stop=()=>{if(stopping)return;stopping=true;server.stopVideo();engine.stopAll();server.close(()=>process.exit(0));setTimeout(()=>process.exit(0),5000).unref();};
+  server.stopGracefully=stop;
+  process.on('message',message=>{if(message?.type==='shutdown')stop();});
   process.on('SIGINT',stop);process.on('SIGTERM',stop);
 }
 module.exports={createServer};
