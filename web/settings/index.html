@@ -1,70 +1,14 @@
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Discord Log Monitor</title>
-    <link rel="stylesheet" href="./styles.css" />
-  </head>
-  <body>
-    <header class="window-bar">
-      <div class="window-title">
-        <img src="./assets/icon.ico" alt="" />
-        <span>Discord Log Monitor</span>
-      </div>
-      <div class="window-controls">
-        <button type="button" id="minimizeWindow" aria-label="Minimize">−</button>
-        <button type="button" id="maximizeWindow" aria-label="Maximize">□</button>
-        <button type="button" id="closeWindow" aria-label="Close">×</button>
-      </div>
-    </header>
-    <main class="shell">
-      <section class="topbar">
-        <div>
-          <h1>Discord Log Monitor</h1>
-          <p>Local control panel for the Discord log monitor.</p>
-        </div>
-        <div class="status">
-          <span id="statusDot" class="dot stopped"></span>
-          <span id="statusText">Stopped</span>
-        </div>
-      </section>
-
-      <nav class="tabs" aria-label="App sections">
-        <button type="button" class="tab-button active" data-tab="monitorPanel">Monitor</button>
-        <button type="button" class="tab-button" data-tab="guidePanel">Setup guide</button>
-      </nav>
-
-      <section id="monitorPanel" class="tab-panel active">
-        <section class="grid">
-          <form id="configForm" class="panel">
-            <div class="form-head">
-              <div>
-                <div class="section-title">Controls</div>
-                <p>Save changes before starting the bot.</p>
-              </div>
-              <div class="actions top-actions">
-                <label class="switch-control" title="Start the Discord bot automatically when this app opens.">
-                  <input id="autoStartBot" type="checkbox" />
-                  <span class="switch-track" aria-hidden="true"></span>
-                  <span class="switch-text">AutoStart</span>
-                </label>
-                <button type="submit" class="primary">Save</button>
-                <button type="button" id="startBot" class="success">Start bot</button>
-                <button type="button" id="stopBot" class="danger">Stop</button>
-              </div>
-            </div>
-
-            <nav class="config-tabs" aria-label="Configuration sections">
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ACBot Workspace Settings</title><link rel="stylesheet" href="styles.css?v=4"></head><body>
+<div class="settings-workspace"><section class="recovery-card"><div><p class="eyebrow">ALWAYS READY</p><h2>Agent & recovery</h2><p>Keep the dashboard available when the browser is closed.</p></div><div class="recovery-controls"><label class="toggle-label"><input type="checkbox" id="windowsRecovery"> Start with Windows & recover automatically</label><p id="recoveryStatus" role="status">Checking the PC agent…</p><button type="button" id="saveRecovery">Apply recovery setting</button></div></section>
+<form id="configForm"><header class="save-bar"><div><h2>Monitor configuration</h2><p id="saveStatus" role="status" aria-live="polite">Loading saved settings…</p></div><div class="actions"><button type="button" id="reloadSettings">Reload saved</button><button type="submit" id="saveSettings" class="primary">Save changes</button></div></header><section class="monitor-controls"><div class="monitor-state"><span id="statusDot" class="dot stopped"></span><strong id="statusText">Checking monitor</strong></div><label class="toggle-label"><input id="autoStartBot" type="checkbox"> Start monitor automatically</label><div class="actions"><button type="button" id="startBot" class="primary">Start Discord monitor</button><button type="button" id="restartMonitor">Apply & restart monitor</button><button type="button" id="stopBot" class="danger">Stop monitor</button></div></section>
+<div class="settings-layout"><nav class="config-tabs" aria-label="Configuration sections">
               <button type="button" class="config-tab-button active" data-config-tab="discordConfig">Discord</button>
               <button type="button" class="config-tab-button" data-config-tab="logsConfig">Logs</button>
-              <button type="button" class="config-tab-button" data-config-tab="autoclashConfig">AutoClash</button>
+              <button type="button" class="config-tab-button" data-config-tab="autoclashConfig">ACBot</button>
               <button type="button" class="config-tab-button" data-config-tab="autostartConfig">AutoStart</button>
               <button type="button" class="config-tab-button" data-config-tab="androidApkConfig">Android APK</button>
               <button type="button" class="config-tab-button" data-config-tab="optionsConfig">Options</button>
-            </nav>
-
-            <section id="discordConfig" class="config-panel active">
+            </nav><div class="settings-content">            <section id="discordConfig" class="config-panel active">
               <div class="section-title">Discord</div>
 
               <label>
@@ -86,7 +30,7 @@
             </section>
 
             <section id="autoclashConfig" class="config-panel">
-              <div class="section-title">AutoClash control panel</div>
+              <div class="section-title">ACBot control panel</div>
 
               <div class="three-columns">
                 <label>
@@ -110,27 +54,27 @@
               </div>
 
               <label>
-                Resume after AutoClash updates
+                Resume after ACBot updates
                 <select id="autoControlAutoUpdateEnabled">
                   <option value="false">false</option>
                   <option value="true">true</option>
                 </select>
-                <span class="field-hint">Resume active instances after automatic updates. If an old executable blocks the updater, close AutoClash and its background workers, retry the update, then reopen the instances.</span>
+                <span class="field-hint">Resume active instances after automatic updates. If an old executable blocks the updater, close ACBot and its background workers, retry the update, then reopen the instances.</span>
               </label>
 
               <label>
                 ADB path
                 <input id="autoControlAdbPath" type="text" />
-                <span class="field-hint">Tip: use the AutoClash ADB path, for example C:\Users\PC\Desktop\AUTOCOCBOT\AutoClash\adb\adb.exe</span>
+                <span class="field-hint">Tip: use the ACBot ADB path, for example C:\Users\PC\Desktop\AUTOCOCBOT\ACBot\adb\adb.exe</span>
               </label>
 
               <div id="autoInstancesList" class="logs-list"></div>
-              <button type="button" id="addAutoInstance" class="secondary">Add AutoClash exe</button>
+              <button type="button" id="addAutoInstance" class="secondary">Add instance</button>
             </section>
 
             <section id="autostartConfig" class="config-panel">
               <div class="section-title">AutoStart</div>
-              <p class="config-intro">Choose which AutoClash instances this PC opens automatically and checks with ADB recovery. Disabled instances stay available for manual Discord buttons.</p>
+              <p class="config-intro">Choose which ACBot instances this PC opens automatically and checks with ADB recovery. Disabled instances stay available for manual Discord buttons.</p>
 
               <div id="autoStartInstancesList" class="autostart-list"></div>
             </section>
@@ -151,7 +95,7 @@
                 <button type="button" id="refreshAndroidDevices" class="secondary">Find ADB devices</button>
               </div>
               <datalist id="androidAdbDevices"></datalist>
-              <p id="androidDevicesHint" class="field-hint">Uses the ADB executable selected in the AutoClash tab. Save changes and start the bot to begin monitoring.</p>
+              <p id="androidDevicesHint" class="field-hint">Uses the ADB executable selected in the ACBot tab. Save changes and start the bot to begin monitoring.</p>
             </section>
 
             <section id="optionsConfig" class="config-panel">
@@ -244,146 +188,6 @@
                 <span class="field-hint">No restart question is sent. Humanized breaks are ignored; sleeping hours only send a notice.</span>
               </label>
             </section>
-          </form>
-
-          <section class="panel console-panel">
-            <div class="console-head">
-              <div class="section-title">Console</div>
-              <button type="button" id="clearConsole">Clear</button>
-            </div>
-            <pre id="consoleOutput"></pre>
-          </section>
-        </section>
-      </section>
-
-      <section id="guidePanel" class="tab-panel">
-        <section class="panel guide-panel">
-          <div class="guide-hero">
-            <div>
-              <div class="section-title">Setup guide</div>
-              <h2>Create and connect your Discord bot</h2>
-              <p>Follow these steps on any PC where you want to run Discord Log Monitor.</p>
-            </div>
-          </div>
-
-          <div class="guide-grid">
-            <article>
-              <h3>1. Create the Discord bot</h3>
-              <ol>
-                <li>Open <strong>Discord Developer Portal</strong>.</li>
-                <li>Click <strong>New Application</strong>.</li>
-                <li>Name it <strong>Discord Log Monitor</strong>.</li>
-                <li>Go to <strong>Bot</strong>.</li>
-                <li>Copy or reset the bot token.</li>
-              </ol>
-              <p class="note">Never share the bot token. If it leaks, reset it.</p>
-            </article>
-
-            <article>
-              <h3>2. Invite it to your server</h3>
-              <ol>
-                <li>Go to <strong>OAuth2</strong> > <strong>URL Generator</strong>.</li>
-                <li>Select the <strong>bot</strong> scope.</li>
-                <li>Select the required permissions.</li>
-                <li>Open the generated URL.</li>
-                <li>Choose your server and authorize the bot.</li>
-              </ol>
-            </article>
-
-            <article>
-              <h3>3. Required permissions</h3>
-              <ul>
-                <li>View Channel</li>
-                <li>Send Messages</li>
-                <li>Embed Links</li>
-                <li>Attach Files</li>
-                <li>Create Public Threads</li>
-                <li>Send Messages in Threads</li>
-                <li>Mention Everyone</li>
-                <li>Manage Channels</li>
-                <li>Read Message History</li>
-              </ul>
-            </article>
-
-            <article>
-              <h3>4. Create channels</h3>
-              <p>Create one Discord channel per log, for example:</p>
-              <pre class="guide-code">ld9
-bluestacks</pre>
-              <p>The bot can rename them automatically:</p>
-              <pre class="guide-code">green circle = running
-red circle = stopped</pre>
-            </article>
-
-            <article>
-              <h3>5. Get channel IDs</h3>
-              <ol>
-                <li>Open Discord settings.</li>
-                <li>Go to <strong>Advanced</strong>.</li>
-                <li>Enable <strong>Developer Mode</strong>.</li>
-                <li>Right-click a channel.</li>
-                <li>Click <strong>Copy Channel ID</strong>.</li>
-              </ol>
-            </article>
-
-            <article>
-              <h3>6. Configure this app</h3>
-              <ul>
-                <li><strong>Discord</strong>: bot token and fallback channel.</li>
-                <li><strong>Logs</strong>: channel IDs and log folders.</li>
-                <li><strong>AutoClash</strong>: panel channel, exe list, and ADB.</li>
-                <li><strong>Options</strong>: intervals and line limits.</li>
-              </ul>
-            </article>
-
-            <article>
-              <h3>7. AutoClash panel</h3>
-              <ul>
-                <li>Set <strong>Enabled</strong> to true.</li>
-                <li>Paste the panel channel ID.</li>
-                <li>Add every AutoClash exe manually.</li>
-                <li>Choose <strong>PRO</strong> or <strong>BASIC</strong> for each exe.</li>
-                <li>Set the ADB device port for each emulator.</li>
-              </ul>
-            </article>
-
-            <article>
-              <h3>8. Recommended options</h3>
-              <pre class="guide-code">Check every: 5
-Alert after: 180
-Read lines: 10
-Show lines: 20
-Live log thread: true
-Live interval: 10
-Restart on stop: Off or Auto start</pre>
-            </article>
-
-            <article>
-              <h3>9. Start the bot</h3>
-              <ul>
-                <li>Click <strong>Save</strong>.</li>
-                <li>Click <strong>Start bot</strong>.</li>
-                <li>Check the app console.</li>
-                <li>Check Discord for log embeds and the AutoClash panel.</li>
-              </ul>
-            </article>
-
-            <article>
-              <h3>10. Troubleshooting</h3>
-              <ul>
-                <li>If the bot does not start, check the console panel.</li>
-                <li>If channels do not rename, check Manage Channels permission.</li>
-                <li>If everyone is not notified, check Mention Everyone permission.</li>
-                <li>If no lines appear, confirm the folder contains `.txt` logs.</li>
-                <li>If stats fail, check the exe path, ADB path, ADB device, and Attach Files permission.</li>
-              </ul>
-            </article>
-          </div>
-        </section>
-      </section>
-      <div class="watermark">Made for Nubito</div>
-    </main>
-
-    <script src="./bridge.js?v=2"></script><script src="./renderer.js"></script>
-  </body>
-</html>
+</div></div></form>
+<details class="console-panel"><summary>Monitor console</summary><div class="console-head"><span>Recent agent output</span><button type="button" id="clearConsole">Clear</button></div><pre id="consoleOutput"></pre></details><footer>ACBot Web Monitor <span>Made by Nubito</span></footer></div>
+<script src="bridge.js?v=4"></script><script src="renderer.js?v=4"></script></body></html>

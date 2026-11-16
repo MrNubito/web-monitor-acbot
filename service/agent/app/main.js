@@ -100,59 +100,63 @@ function runtimeHandleAutoClashUpdateScriptPath() {
   return path.join(runtimeDir(), "handle-autoclash-update.ps1");
 }
 
+let runtimeFilesReady=false;
+const {copyRuntimeFile}=require('../../runtime-files.cjs');
 function ensureRuntimeFiles() {
+  if(runtimeFilesReady)return;
   fs.mkdirSync(runtimeDir(), { recursive: true });
 
   if (!fs.existsSync(runtimeEnvPath()) && fs.existsSync(sourceEnvPath)) {
-    fs.copyFileSync(sourceEnvPath, runtimeEnvPath());
+    copyRuntimeFile(sourceEnvPath, runtimeEnvPath());
   }
 
   if (!fs.existsSync(sourceBotPath)) {
     throw new Error(`bot.js was not found at ${sourceBotPath}`);
   }
 
-  fs.copyFileSync(sourceBotPath, runtimeBotPath());
-  fs.copyFileSync(path.join(sourceRootDir, "autoclash-upload.js"), path.join(runtimeDir(), "autoclash-upload.js"));
-  fs.copyFileSync(path.join(sourceRootDir, "profile-config.js"), path.join(runtimeDir(), "profile-config.js"));
-  fs.copyFileSync(path.join(sourceRootDir, "profile-slot-options.json"), path.join(runtimeDir(), "profile-slot-options.json"));
-  fs.copyFileSync(path.join(sourceRootDir, "android-apk-monitor.js"), path.join(runtimeDir(), "android-apk-monitor.js"));
-  fs.copyFileSync(path.join(sourceRootDir, "control-gateway.js"), path.join(runtimeDir(), "control-gateway.js"));
+  copyRuntimeFile(sourceBotPath, runtimeBotPath());
+  copyRuntimeFile(path.join(sourceRootDir, "autoclash-upload.js"), path.join(runtimeDir(), "autoclash-upload.js"));
+  copyRuntimeFile(path.join(sourceRootDir, "profile-config.js"), path.join(runtimeDir(), "profile-config.js"));
+  copyRuntimeFile(path.join(sourceRootDir, "profile-slot-options.json"), path.join(runtimeDir(), "profile-slot-options.json"));
+  copyRuntimeFile(path.join(sourceRootDir, "android-apk-monitor.js"), path.join(runtimeDir(), "android-apk-monitor.js"));
+  copyRuntimeFile(path.join(sourceRootDir, "control-gateway.js"), path.join(runtimeDir(), "control-gateway.js"));
   for (const name of ["autoclash-process.ps1", "detect-autoclash-process.ps1", "inspect-autoclash-updaters.ps1", "close-autoclash-recovery.ps1"]) {
-    fs.copyFileSync(path.join(sourceRootDir, name), path.join(runtimeDir(), name));
+    copyRuntimeFile(path.join(sourceRootDir, name), path.join(runtimeDir(), name));
   }
 
   if (fs.existsSync(sourceControlScriptPath)) {
-    fs.copyFileSync(sourceControlScriptPath, runtimeControlScriptPath());
+    copyRuntimeFile(sourceControlScriptPath, runtimeControlScriptPath());
   }
 
   if (fs.existsSync(sourceCaptureScriptPath)) {
-    fs.copyFileSync(sourceCaptureScriptPath, runtimeCaptureScriptPath());
+    copyRuntimeFile(sourceCaptureScriptPath, runtimeCaptureScriptPath());
   }
 
   if (fs.existsSync(sourceFullScreenScriptPath)) {
-    fs.copyFileSync(sourceFullScreenScriptPath, runtimeFullScreenScriptPath());
+    copyRuntimeFile(sourceFullScreenScriptPath, runtimeFullScreenScriptPath());
   }
 
   if (fs.existsSync(sourceCloseLdPlayerScriptPath)) {
-    fs.copyFileSync(sourceCloseLdPlayerScriptPath, runtimeCloseLdPlayerScriptPath());
+    copyRuntimeFile(sourceCloseLdPlayerScriptPath, runtimeCloseLdPlayerScriptPath());
   }
 
   if (fs.existsSync(sourceCocConnectionLostScriptPath)) {
-    fs.copyFileSync(sourceCocConnectionLostScriptPath, runtimeCocConnectionLostScriptPath());
+    copyRuntimeFile(sourceCocConnectionLostScriptPath, runtimeCocConnectionLostScriptPath());
   }
 
   if (fs.existsSync(sourceActivateAutoClashLaunchScriptPath)) {
-    fs.copyFileSync(sourceActivateAutoClashLaunchScriptPath, runtimeActivateAutoClashLaunchScriptPath());
+    copyRuntimeFile(sourceActivateAutoClashLaunchScriptPath, runtimeActivateAutoClashLaunchScriptPath());
   }
 
   if (fs.existsSync(sourceCloseAutoClashExeScriptPath)) {
-    fs.copyFileSync(sourceCloseAutoClashExeScriptPath, runtimeCloseAutoClashExeScriptPath());
+    copyRuntimeFile(sourceCloseAutoClashExeScriptPath, runtimeCloseAutoClashExeScriptPath());
   }
 
   if (fs.existsSync(sourceHandleAutoClashUpdateScriptPath)) {
-    fs.copyFileSync(sourceHandleAutoClashUpdateScriptPath, runtimeHandleAutoClashUpdateScriptPath());
+    copyRuntimeFile(sourceHandleAutoClashUpdateScriptPath, runtimeHandleAutoClashUpdateScriptPath());
   }
 
+  runtimeFilesReady=true;
 }
 
 function createWindow() {
@@ -405,7 +409,10 @@ function writeEnv(config) {
     "",
   ].join("\n");
 
-  fs.writeFileSync(runtimeEnvPath(), content, "utf8");
+  const target=runtimeEnvPath(),temporary=target+'.tmp-'+process.pid;
+  if(fs.existsSync(target))fs.copyFileSync(target,target+'.previous');
+  fs.writeFileSync(temporary,content,{encoding:'utf8',mode:0o600});
+  fs.renameSync(temporary,target);
 }
 
 function sendLog(type, text) {
@@ -438,14 +445,16 @@ function startBot(options = {}) {
   if (botProcess) return { running: true };
   ensureRuntimeFiles();
   const config = configFromEnv();
+  require('../../monitor-config.cjs').validateMonitorConfig(config);
   const shouldRunAutoStartSequence =
-    options.autoStartSequence || String(config.autoStartBot || "false") === "true";
+    options.autoStartSequence ?? (String(config.autoStartBot || "false") === "true");
 
   const env = {
     ...process.env,
     ...bundledNodePathEnv(),
     ...envFromConfig(config),
     APP_AUTOSTART_SEQUENCE: shouldRunAutoStartSequence ? "true" : "false",
+    ACBOT_AGENT_PARENT_PID: String(process.pid),
   };
 
   const child = spawn(bundledNodePath(), [runtimeBotPath()], {
@@ -487,6 +496,8 @@ function stopBot() {
   sendLog("info", "Bot stopped by the user.");
   return { running: false };
 }
+
+async function stopBotAndWait(){const child=botProcess;if(!child)return;await new Promise(resolve=>{let done=false;const finish=()=>{if(done)return;done=true;clearTimeout(timer);resolve();};const timer=setTimeout(()=>{try{child.kill('SIGKILL');}catch{}finish();},5000);child.once('exit',finish);child.once('error',finish);stopBot();});}
 
 function stopMobileServer() {
   if (!mobileServer) return Promise.resolve();
@@ -1603,4 +1614,4 @@ ipcMain.handle("window:maximize-toggle", () => {
 ipcMain.handle("window:close", () => mainWindow?.close());
 
 
-module.exports = { ensureRuntimeFiles, configFromEnv, envFromConfig, writeEnv, startBot, stopBot, mobileConfig, handleMobileRequest, getMobileInstancesStatus, mobileLogsConfig, mobileLogSummary, findMobileInstance, resolveAutoClashRootPath, resolveMobileLogFile, timestampMobileLogLines, listMobileProfiles, captureMobileAdbScreen, runMobileAction, runAndroidAutostart, startConfiguredAndroidInstances, stopAll: () => { androidAutostartShuttingDown = true; for (const controller of androidAutostartJobs.values()) controller.abort(); stopBot(); }, botRunning: () => Boolean(botProcess) };
+module.exports = { validateMonitorConfig:()=>require('../../monitor-config.cjs').validateMonitorConfig(configFromEnv()), ensureRuntimeFiles, configFromEnv, envFromConfig, writeEnv, startBot, stopBot, stopBotAndWait, mobileConfig, handleMobileRequest, getMobileInstancesStatus, mobileLogsConfig, mobileLogSummary, findMobileInstance, resolveAutoClashRootPath, resolveMobileLogFile, timestampMobileLogLines, listMobileProfiles, captureMobileAdbScreen, runMobileAction, runAndroidAutostart, startConfiguredAndroidInstances, stopAll: () => { androidAutostartShuttingDown = true; for (const controller of androidAutostartJobs.values()) controller.abort(); stopBot(); }, botRunning: () => Boolean(botProcess) };

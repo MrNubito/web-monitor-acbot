@@ -1,0 +1,15 @@
+const crypto=require('crypto'),fs=require('fs'),path=require('path');
+const keys=['label','exePath','device','version','active','emulator','emulatorIndex'];
+const digest=value=>crypto.createHash('sha256').update(value).digest('hex');
+function entry(raw,id){const rows=String(raw||'').split(';'),index=rows.findIndex(row=>row.split('|')[0].trim()===id);if(index<0)throw Object.assign(Error('Instance not found.'),{status:404});return {rows,index,parts:rows[index].split('|').map(v=>v.trim()),revision:digest(rows[index])};}
+function view(raw,id){const row=entry(raw,id),p=row.parts;return {id,label:p[1]||'',exePath:p[2]||'',device:p[3]||'',version:p[4]||'pro',active:['true','1','yes','on','active'].includes((p[5]||'').toLowerCase()),emulator:p[6]||'auto',emulatorIndex:p[7]||'',revision:row.revision};}
+function update(raw,id,input){if(!input||typeof input!=='object'||Array.isArray(input))throw Error('Invalid instance settings.');for(const key of Object.keys(input))if(![...keys,'revision'].includes(key))throw Error('Unknown instance setting: '+key);const row=entry(raw,id);if(input.revision!==row.revision)throw Object.assign(Error('This instance changed in another window. Your edits were kept. Close and reopen the editor to load its latest settings.'),{status:409});const previous=view(raw,id),next={};for(const key of keys){next[key]=input[key];if(key!=='active'&&(typeof next[key]!=='string'||/[|;\r\n]/.test(next[key])))throw Error('Invalid value for '+key+'.');if(typeof next[key]==='string')next[key]=next[key].trim();}
+ if(!next.label||next.label.length>80)throw Error('Enter a display name with 1 to 80 characters.');
+ if(!next.exePath)throw Error('Enter the ACBot folder or executable path.');
+ if(next.exePath!==previous.exePath){if(!path.isAbsolute(next.exePath))throw Error('Use an absolute path on the PC running ACBot.');let stat;try{stat=fs.statSync(next.exePath);}catch{throw Error('The ACBot path does not exist on this PC.');}const root=stat.isDirectory()?next.exePath:path.dirname(next.exePath);if(!fs.existsSync(path.join(root,'profiles')))throw Error('Choose an ACBot folder or executable with a profiles folder beside it.');}
+ if(next.device&&/^\d+$/.test(next.device)){if(Number(next.device)<1||Number(next.device)>65535)throw Error('Enter a valid ADB port.');next.device='127.0.0.1:'+Number(next.device);}
+ if(next.device&&(!/^[^\s|;]+$/.test(next.device)||next.device.length>128))throw Error('Enter a valid ADB device, for example emulator-5554 or 127.0.0.1:5555.');
+ if(!['pro','basic'].includes(next.version))throw Error('Choose an ACBot version.');if(typeof next.active!=='boolean')throw Error('Choose whether automatic startup is enabled.');if(!['auto','ldplayer','mumu','memu','bluestacks'].includes(next.emulator))throw Error('Choose an emulator.');if(next.emulatorIndex&&!/^\d{1,4}$/.test(next.emulatorIndex))throw Error('Emulator index must be blank or a number from 0 to 9999.');
+ const parts=[id,next.label,next.exePath,next.device,next.version,String(next.active),next.emulator,next.emulatorIndex,...row.parts.slice(8)];row.rows[row.index]=parts.join('|');return row.rows.join(';');
+}
+module.exports={view,update};

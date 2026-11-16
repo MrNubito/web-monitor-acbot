@@ -20,19 +20,19 @@ export function createPerformanceHistory(limit=90){
     }
   };
 }
-export function performanceSvg(rows){
+export function performanceSvg(rows,{compact=false}={}){
   if(!rows.length)return '<div class="empty compact">Waiting for performance data.</div>';
-  const width=520,height=118,left=38,right=505,top=10,bottom=96;
+  const width=compact?320:520,height=compact?150:118,left=compact?46:38,right=width-15,top=10,bottom=compact?125:96;
   const maximum=Math.max(1,...rows.flatMap(row=>row.values.filter(v=>v!=null)))*1.12;
   const start=rows[0].at,end=rows.at(-1).at;
   const x=at=>left+(end===start?0:(at-start)/(end-start))*(right-left);
   const y=v=>bottom-Math.max(0,v)/maximum*(bottom-top);
-  const ticks=[0,.5,1].map(f=>{const yy=bottom-f*(bottom-top);return `<line x1="${left}" y1="${yy}" x2="${right}" y2="${yy}" stroke="#40294f" stroke-width=".7"/><text x="${left-7}" y="${yy+3}" text-anchor="end" fill="#9a7bac" font-size="8">${number(maximum*f)}</text>`;}).join('');
+  const ticks=[0,.5,1].map(f=>{const yy=bottom-f*(bottom-top);return `<line x1="${left}" y1="${yy}" x2="${right}" y2="${yy}" stroke="#40294f" stroke-width=".7"/><text x="${left-7}" y="${yy+3}" text-anchor="end" fill="#9a7bac" font-size="${compact?10:8}">${number(maximum*f)}</text>`;}).join('');
   const series=keys.map((key,i)=>{
     const points=rows.filter(row=>row.values[i]!=null).map(row=>[x(row.at),y(row.values[i])]);if(!points.length)return '';
     const path=points.map(([xx,yy],j)=>(j?'L':'M')+xx.toFixed(2)+' '+yy.toFixed(2)).join(' ');
     const last=points.at(-1);const fill=i===0&&points.length>1?`<path d="${path} L${last[0]} ${bottom} L${points[0][0]} ${bottom}Z" fill="url(#performanceArea)"/>`:'';
     return fill+`<path d="${path}" fill="none" stroke="${colors[i]}" stroke-width="${i===0?2:1.4}" stroke-linecap="round"/><circle cx="${last[0]}" cy="${last[1]}" r="2.6" fill="${colors[i]}" stroke="#f4ccff" stroke-width=".5"/>`;
   }).join('');
-  return `<svg viewBox="0 0 ${width} ${height}" role="img" aria-label="Resource totals observed since this page was opened"><defs><linearGradient id="performanceArea" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#9d23db" stop-opacity=".45"/><stop offset="1" stop-color="#9d23db" stop-opacity="0"/></linearGradient></defs>${ticks}${series}<text x="${left}" y="113" fill="#886695" font-size="7">${time(start)}</text>${rows.length>1?`<text x="${right}" y="113" text-anchor="end" fill="#886695" font-size="7">${time(end)}</text>`:''}</svg>`;
+  return `<svg viewBox="0 0 ${width} ${height}" role="img" aria-label="Resource totals observed since this page was opened"><defs><linearGradient id="performanceArea" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#9d23db" stop-opacity=".45"/><stop offset="1" stop-color="#9d23db" stop-opacity="0"/></linearGradient></defs>${ticks}${series}<text x="${left}" y="${height-5}" fill="#886695" font-size="${compact?10:7}">${time(start)}</text>${rows.length>1?`<text x="${right}" y="113" text-anchor="end" fill="#886695" font-size="7">${time(end)}</text>`:''}</svg>`;
 }

@@ -14,8 +14,8 @@ function setStartup(enabled){
  if(!fs.existsSync(exe))throw Error('Windows startup is available in the built portable package.');
  execFileSync('reg.exe',['add',key,'/v',name,'/t','REG_SZ','/d','"'+exe+'" --background','/f'],{windowsHide:true,stdio:'ignore'});
  let previous;try{previous=JSON.parse(fs.readFileSync(statusFile,'utf8'));}catch{}
- if(previous?.enabled&&previous.exe===exe)return;
- try{execFileSync('schtasks.exe',['/Create','/SC','MINUTE','/MO','2','/TN',name,'/TR','"'+exe+'" --background','/IT','/F'],{windowsHide:true,stdio:'pipe'});fs.writeFileSync(statusFile,JSON.stringify({enabled:true,exe,task:name,at:Date.now()})+'\n');record('windows-recovery-enabled',{task:name});}
+ if(previous?.enabled&&previous.exe===exe&&previous.schema===2){try{execFileSync('schtasks.exe',['/Query','/TN',name],{windowsHide:true,stdio:'ignore'});return;}catch{}}
+ try{require('./recovery-task.cjs').installTask({name,exe,dataDir,execute:execFileSync});fs.writeFileSync(statusFile,JSON.stringify({enabled:true,exe,task:name,schema:2,at:Date.now()})+'\n');record('windows-recovery-enabled',{task:name});}
  catch(error){fs.writeFileSync(statusFile,JSON.stringify({enabled:false,exe,error:error.message})+'\n');record('windows-recovery-unavailable',{message:error.message});}
 }
 async function main(){
@@ -73,7 +73,7 @@ async function main(){
   }
  }
  async function stop({pause=false}={}){if(stopping)return;stopping=true;if(pause)fs.writeFileSync(path.join(dataDir,'stopped.json'),JSON.stringify({at:Date.now(),reason:'Stopped by user'})+'\n');connectionGuard?.stop();remote.close();await supervisor?.stop();wizard.close();try{const current=JSON.parse(fs.readFileSync(stateFile,'utf8'));if(current.token===token)fs.unlinkSync(stateFile);}catch{}record('launcher-stopped',{pause});process.exit(0);}
- wizard=createSetupServer({token,configured,remote,onStop:stop,onHealth:()=>({supervision:supervisor?.status||null}),onFinish:async input=>{
+ wizard=createSetupServer({token,configured,remote,onStop:stop,onHealth:()=>({supervision:supervisor?.status||null,startup:settings?.startup===true,recovery:(()=>{try{return JSON.parse(fs.readFileSync(path.join(dataDir,'recovery-task.json'),'utf8'));}catch{return {enabled:false};}})()}),onRecovery:async enabled=>{setStartup(enabled);settings={...settings,startup:enabled};fs.writeFileSync(settingsFile,JSON.stringify(settings,null,2)+'\n');return {ok:true,enabled};},onFinish:async input=>{
   if(configured())throw Error('This portable copy is already configured.');
   const engine=require('../service/agent/app/main');engine.ensureRuntimeFiles();
   const instances=input.instances.map(i=>[i.id,i.label,i.root,i.device,i.version,'false',i.emulator,i.emulatorIndex].join('|')).join(';');

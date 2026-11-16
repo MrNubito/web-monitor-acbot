@@ -1,6 +1,6 @@
 {
   "name": "web-monitor-acbot",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "private": true,
   "description": "Independent ACBot web dashboard and local PC agent",
   "engines": {

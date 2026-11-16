@@ -5,7 +5,7 @@
   const choose=()=>Promise.resolve(prompt('Enter the absolute path on the PC running the agent:')||null);
   window.monitorApp={
     loadConfig:async()=>({...await api('/api/config'),...await api('/api/console').then(s=>({botRunning:s.botRunning}))}),
-    saveConfig:config=>api('/api/config',config),pickFolder:choose,pickExe:choose,pickAutoClashPath:choose,
+    saveConfig:config=>api('/api/config',config),system:()=>api('/api/system'),recovery:enabled=>api('/api/system/recovery',{enabled}),restartBot:()=>api('/api/bot/restart',{}),pickFolder:choose,pickExe:choose,pickAutoClashPath:choose,
     startBot:()=>api('/api/bot/start',{}),stopBot:()=>api('/api/bot/stop',{}),getBotStatus:()=>api('/api/console').then(s=>({running:s.botRunning})),
     listAndroidDevices:()=>api('/api/android/devices').then(s=>s.devices),
     startAndroid:async(settings,id)=>{progressListeners.forEach(fn=>fn({id,message:'Android Autostart is running on the PC…'}));return api('/api/android/start',{settings,id});},
@@ -14,5 +14,7 @@
     onBotLog:fn=>logListeners.push(fn),onBotStatus:fn=>statusListeners.push(fn),
   };
   setInterval(async()=>{try{const state=await api('/api/console');statusListeners.forEach(fn=>fn({running:state.botRunning}));const last=state.logs.at(-1);if(last&&JSON.stringify(last)!==lastLog){lastLog=JSON.stringify(last);logListeners.forEach(fn=>fn(last));}}catch{}},3000);
+  const announceSize=()=>parent.postMessage({type:'acbot-settings-size',height:Math.ceil(document.body.getBoundingClientRect().height)+24},location.origin);
+  new ResizeObserver(announceSize).observe(document.body);window.addEventListener('load',announceSize);
   const style=document.createElement('style');style.textContent='.titlebar{display:none!important}body{min-width:0!important}.app-shell{min-width:0!important}';document.head.append(style);
 })();

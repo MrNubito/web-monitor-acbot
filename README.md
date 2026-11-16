@@ -141,3 +141,15 @@ New ACBot versions store daily account counters in profile_daily and Town Hall m
 ### Reading Account stats on mobile
 
 Phones show one card per account, with runtime, attacks and loot up front. More statistics expands exact loot amounts, donations, upgrades, research, potions, Builder Base and star counts. Desktop keeps the full table. Automatic account refresh now runs every 15 seconds, updates existing keyed DOM nodes only, preserves expanded sections and scroll position, and leaves the previous data visible during transient errors. Pause updates stops automatic requests; Refresh works while paused. Filter changes cancel stale responses.
+
+### Workspace settings and recovery (0.3.1)
+Settings use the dashboard design on desktop and mobile. Save shows errors and keeps unsaved edits; incomplete instances cannot disappear silently. Configuration saves are atomic, keep a previous copy, and detect changes from another browser window. Apply & restart monitor activates saved settings without relaunching ACBot instances. Explicit Stop remains stopped; a running monitor recovers after child or agent failure. Windows startup/recovery can be enabled in Settings and checks once a minute while signed in, including on battery, without a 72-hour task limit. Closing the browser does not stop the PC agent. A powered-off or sleeping PC must wake before it can serve the dashboard.
+
+Update announcements check stable releases after sign-in and every 15 minutes while the dashboard is visible. View update opens the Updates page; Remind me tomorrow snoozes that version for 24 hours on the same browser and agent. A different release is announced separately. The dialog waits for edits and other dialogs, and never installs updates automatically.
+
+### Mobile workspace
+The touch layout covers screens up to 900 px, including phones and portrait tablets. Bottom navigation has Overview, Account stats, Instances and a More menu for Logs, Profiles, Updates and Settings. Controls use touch-sized targets and 16 px form text; account filters, statistics and profile slots adapt to narrow screens. Profile Save stays above the bottom navigation while edits are pending. Safe-area padding supports devices with a home indicator. The emulator view keeps the full frame contained.
+
+Discord monitor startup validates the token, fallback channel and log/APK sources before spawning. Invalid settings cancel automatic retries until corrected. Bundled runtime files are synchronized once per agent process, use atomic replacement only when content changes, and are never recopied by dashboard polling. The web dashboard itself works without Discord.
+
+Instances cards include Edit instance. Display name, ACBot folder/executable, ADB device, version, emulator, emulator index and automatic startup can be changed in a touch-friendly editor. The ID stays fixed to preserve history. Saves validate changed folders, preserve other instances and settings, and reject stale edits without discarding the form. An active Discord monitor needs restarting to load the updated configuration.

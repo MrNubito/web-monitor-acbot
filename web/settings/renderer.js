@@ -34,12 +34,18 @@ const logsList = document.getElementById("logsList");
 const autoInstancesList = document.getElementById("autoInstancesList");
 const autoStartInstancesList = document.getElementById("autoStartInstancesList");
 
+let savedRevision='',loaded=false,dirty=false,saving=false;
+const saveStatus=document.getElementById('saveStatus');
+function message(text,state=''){saveStatus.textContent=text;saveStatus.dataset.state=state;}
+function markDirty(){if(!loaded||saving)return;dirty=true;message('Unsaved changes','dirty');}
+form.addEventListener('input',markDirty);form.addEventListener('change',markDirty);form.addEventListener('click',event=>{if(event.target.closest('#addLog,#addAutoInstance,#addAndroidApkInstance,.remove-log,.remove-auto-instance,.remove-apk-instance'))markDirty();});
+window.addEventListener('beforeunload',event=>{if(dirty){event.preventDefault();event.returnValue='';}});
 let logs = [];
 let autoInstances = [];
 let androidApkInstances = [];
 
 function getConfig() {
-  const config = {};
+  const config = {_revision:savedRevision};
   for (const field of fields) {
     config[field] = document.getElementById(field).value.trim();
   }
@@ -51,6 +57,7 @@ function getConfig() {
 }
 
 function setConfig(config) {
+  savedRevision=config._revision||savedRevision;
   for (const field of fields) {
     document.getElementById(field).value = config[field] || "";
   }
@@ -62,7 +69,9 @@ function setConfig(config) {
   renderAutoStartInstances();
   try { androidApkInstances = JSON.parse(config.androidApkInstances || "[]"); } catch { androidApkInstances = []; }
   renderAndroidApkInstances();
-  setRunning(Boolean(config.botRunning));
+  if(config.botRunning!==undefined)setRunning(Boolean(config.botRunning));
+  loaded=true;dirty=false;
+  document.getElementById("discordToken").placeholder=config._tokenConfigured?"Token saved — leave blank to keep it":"Paste your Discord bot token";
 }
 
 function getAndroidApkInstances() {
@@ -190,7 +199,7 @@ function parseAutoInstances(value) {
 
 function serializeAutoInstances(instances) {
   return instances
-    .filter((instance) => instance.id && instance.label && instance.exePath)
+    .map((instance,index)=>{if(!instance.id||!instance.label||!instance.exePath)throw Error('Instance '+(index+1)+': enter an ID, display name and ACBot path before saving.');return instance;})
     .map((instance) =>
       [
         cleanInstancePart(instance.id),
@@ -242,7 +251,7 @@ function getAutoInstancesForSave() {
 function normalizeAdbDevice(value) {
   const device = String(value || "").trim();
   if (!device) return "";
-  if (device.includes(":")) return device;
+  if (device.includes(":") || /^emulator-\d+$/.test(device)) return device;
   return `127.0.0.1:${device.replace(/[^0-9]/g, "")}`;
 }
 
@@ -291,14 +300,14 @@ function renderAutoInstances() {
           <input data-auto-field="id" type="text" value="${escapeHtml(instance.id || "")}" />
         </label>
         <label>
-          Button name
+          Display name
           <input data-auto-field="label" type="text" value="${escapeHtml(instance.label || "")}" />
         </label>
         <label>
-          ADB port
+          ADB device
           <div class="adb-port-row">
             <span>127.0.0.1:</span>
-            <input data-auto-field="device" type="text" inputmode="numeric" value="${escapeHtml(adbPortFromDevice(instance.device))}" placeholder="5555" />
+            <input data-auto-field="device" type="text" inputmode="numeric" value="${escapeHtml(adbPortFromDevice(instance.device))}" placeholder="5555 or emulator-5554" />
           </div>
         </label>
         <label>
@@ -321,11 +330,11 @@ function renderAutoInstances() {
         <label>
           Emulator index
           <input data-auto-field="emulatorIndex" type="text" inputmode="numeric" value="${escapeHtml(instance.emulatorIndex || "")}" placeholder="MuMu: 1 / LD: 6" />
-          <span class="field-hint">Optional. Use this when one ADB port cannot identify the emulator.</span>
+          <span class="field-hint">Optional. Use this when one ADB device cannot identify the emulator.</span>
         </label>
       </div>
       <label>
-        AutoClash folder or exe
+        ACBot folder or exe
         <div class="path-row">
           <input data-auto-field="exePath" type="text" value="${escapeHtml(instance.exePath || "")}" />
           <button type="button" class="pick-auto-exe">Browse</button>
@@ -443,9 +452,10 @@ function appendConsole(entry) {
 }
 
 async function saveConfig() {
-  const nextConfig = await window.monitorApp.saveConfig(getConfig());
-  setConfig(nextConfig);
-  appendConsole({ time: new Date().toLocaleTimeString(), text: "Configuration saved." });
+  if(saving)return; saving=true;form.inert=true;message('Saving settings…');
+  try{const nextConfig=await window.monitorApp.saveConfig(getConfig());setConfig(nextConfig);message(nextConfig.restartRequired?'Saved. Apply & restart monitor to use the new settings.':'All changes saved.','saved');appendConsole({time:new Date().toLocaleTimeString(),text:'Configuration saved.'});return true;}
+  catch(error){dirty=true;message(error.message,'error');return false;}
+  finally{saving=false;form.inert=false;}
 }
 
 form.addEventListener("submit", async (event) => {
@@ -480,30 +490,16 @@ document.getElementById("addAutoInstance").addEventListener("click", () => {
 });
 
 document.getElementById("startBot").addEventListener("click", async () => {
-  await saveConfig();
-  const status = await window.monitorApp.startBot();
-  setRunning(status.running);
+  if(!await saveConfig())return;
+  try{const status=await window.monitorApp.startBot();setRunning(status.running);await loadRecovery();}catch(error){message(error.message,'error');}
 });
 
 document.getElementById("stopBot").addEventListener("click", async () => {
-  const status = await window.monitorApp.stopBot();
-  setRunning(status.running);
+  try{const status=await window.monitorApp.stopBot();setRunning(status.running);await loadRecovery();}catch(error){message(error.message,'error');}
 });
 
 document.getElementById("clearConsole").addEventListener("click", () => {
   consoleOutput.textContent = "";
-});
-
-document.getElementById("minimizeWindow").addEventListener("click", () => {
-  window.monitorApp.minimizeWindow();
-});
-
-document.getElementById("maximizeWindow").addEventListener("click", () => {
-  window.monitorApp.toggleMaximizeWindow();
-});
-
-document.getElementById("closeWindow").addEventListener("click", () => {
-  window.monitorApp.closeWindow();
 });
 
 document.querySelectorAll(".tab-button").forEach((button) => {
@@ -542,5 +538,12 @@ document.querySelectorAll(".config-tab-button").forEach((button) => {
 window.monitorApp.onBotLog(appendConsole);
 window.monitorApp.onBotStatus((status) => setRunning(status.running));
 
-window.monitorApp.loadConfig().then(setConfig);
-window.monitorApp.getBotStatus().then((status) => setRunning(status.running));
+async function loadSaved(){try{setConfig(await window.monitorApp.loadConfig());message('Saved settings loaded.','saved');}catch(error){loaded=false;message('Unable to load settings: '+error.message,'error');}}
+document.getElementById('reloadSettings').onclick=()=>{if(!dirty||confirm('Discard unsaved changes and reload the saved settings?'))void loadSaved();};
+document.getElementById('restartMonitor').onclick=async()=>{if(!await saveConfig())return;try{message('Restarting monitor…');const state=await window.monitorApp.restartBot();setRunning(state.running);message('Saved settings applied.','saved');await loadRecovery();}catch(error){message(error.message,'error');}};
+async function loadRecovery(){try{const state=await window.monitorApp.system();document.getElementById('windowsRecovery').checked=state.launcher.startup===true;document.getElementById('saveRecovery').disabled=!!state.launcher.error;document.getElementById('recoveryStatus').textContent=state.launcher.error||(state.launcher.recovery?.enabled?'Windows recovery enabled · checked every minute. Closing the browser keeps the agent running.':'Windows recovery is disabled.');}catch(error){document.getElementById('recoveryStatus').textContent=error.message;}}
+document.getElementById('saveRecovery').onclick=async()=>{const button=document.getElementById('saveRecovery');button.disabled=true;try{await window.monitorApp.recovery(document.getElementById('windowsRecovery').checked);await loadRecovery();}catch(error){document.getElementById('recoveryStatus').textContent=error.message;}finally{button.disabled=false;}};
+void loadSaved();void loadRecovery();
+window.monitorApp.getBotStatus().then((status) => setRunning(status.running)).catch(error=>message(error.message,"error"));
+
+window.addEventListener('message',event=>{if(event.source!==parent||event.origin!==location.origin||event.data?.type!=='acbot-instance-saved')return;if(!dirty&&!saving)void loadSaved();else message('Instance settings changed. Your edits are kept; reload saved settings before saving.','dirty');});

@@ -1,3 +1,5 @@
+// A monitor child must not outlive its owning web agent after a crash.
+if(process.env.ACBOT_AGENT_PARENT_PID){const owner=Number(process.env.ACBOT_AGENT_PARENT_PID);if(Number.isSafeInteger(owner)&&owner>0){setInterval(()=>{try{process.kill(owner,0);}catch(error){if(error.code==='ESRCH')process.exit(0);}},2000).unref();}}
 const fs = require("fs");
 const path = require("path");
 const { execFile, spawn } = require("child_process");

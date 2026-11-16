@@ -1,6 +1,6 @@
 const http=require('http'),fs=require('fs'),path=require('path'),crypto=require('crypto');
 const discovery=require('./discovery.cjs');
-function createSetupServer({token,configured=()=>false,onFinish,onStop,onHealth=()=>({}),remote,scan=discovery.discover}){
+function createSetupServer({token,configured=()=>false,onFinish,onStop,onHealth=()=>({}),onRecovery,remote,scan=discovery.discover}){
  let finishing=false;
  const json=(res,status,value)=>{res.writeHead(status,{'Content-Type':'application/json','Cache-Control':'no-store'});res.end(JSON.stringify(value));};
  const server=http.createServer(async(req,res)=>{
@@ -19,6 +19,7 @@ function createSetupServer({token,configured=()=>false,onFinish,onStop,onHealth=
    let body={};if(req.method==='POST'){let text='';for await(const part of req){text+=part;if(Buffer.byteLength(text)>100000)throw Error('Request too large.');}body=text?JSON.parse(text):{};}
    if(url.pathname==='/api/health'&&req.method==='GET')return json(res,200,{app:'ACBot Portable',configured:configured(),...onHealth()});
    if(url.pathname==='/api/stop'&&req.method==='POST'){json(res,200,{ok:true});setImmediate(()=>onStop({pause:url.searchParams.get('pause')==='1'}));return;}
+   if(url.pathname==='/api/recovery'&&req.method==='POST'){if(!configured()||!onRecovery)throw Error('Complete setup first.');if(typeof body.enabled!=='boolean')throw Error('Invalid recovery setting.');return json(res,200,await onRecovery(body.enabled));}
    if(configured())return json(res,409,{error:'Setup is complete. Open the dashboard to change settings.'});
    if(url.pathname==='/api/discover'&&req.method==='POST')return json(res,200,scan({roots:typeof body.root==='string'&&body.root.trim()?[body.root.trim()]:undefined}));
    if(url.pathname==='/api/devices'&&req.method==='POST')return json(res,200,{devices:await discovery.devices(body.adb)});

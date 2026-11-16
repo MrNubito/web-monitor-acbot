@@ -1,6 +1,7 @@
 const http=require('http'),fs=require('fs'),path=require('path'),crypto=require('crypto');
 const host=require('./runtime-host'),{createAuth}=require('./auth.cjs'),{readStats}=require('./stats.cjs');
 const engine=require('./agent/app/main'),editor=require('./agent/profile-config');
+const instanceSettings=require('./instance-settings.cjs');
 const runtimeTools=import('../web/runtime.js');
 const {describeProfile,validateChange,readonly}=require('./profile-fields.cjs');
 const {lanHosts}=require('./network.cjs');
@@ -8,6 +9,7 @@ const {createVideoService}=require('./video.cjs');
 const {createAccountHistory}=require('./account-history.cjs');
 const {createUpdater}=require('./updates.cjs');
 const {createTelemetryReader}=require('./telemetry.cjs');
+const {createMonitorLifecycle}=require('./monitor-lifecycle.cjs');
 const {readNativeAccounts,accountView}=require('./native-account-stats.cjs');
 const webDir=path.resolve(__dirname,'../web');
 const defaults='DISCORD_TOKEN=\nLOG_FILES=\nAUTOCONTROL_INSTANCES=\nANDROID_APK_INSTANCES=[]\nANDROID_APK_ENABLED=false\nAPP_AUTOSTART_BOT=false\nAUTOCONTROL_ENABLED=false\nMOBILE_CONTROL_ENABLED=false\nMOBILE_CONTROL_HOST=127.0.0.1\nMOBILE_CONTROL_PORT=17942\n';
@@ -16,6 +18,10 @@ engine.ensureRuntimeFiles();
 const secretKey=key=>/token|password|secret|apiKey/i.test(key);
 function createServer({auth=createAuth(host.dataDir)}={}){
   const profileSessions=new Map();
+  const lifecycle=createMonitorLifecycle({file:path.join(host.dataDir,'monitor-state.json'),engine,log:text=>host.recordLog('info',text)});lifecycle.begin();
+  const configRevision=()=>crypto.createHash('sha256').update(fs.readFileSync(path.join(host.dataDir,'.env'))).digest('hex');
+  async function launcherRequest(route,payload){let state;try{state=JSON.parse(fs.readFileSync(path.join(host.dataDir,'launcher-state.json'),'utf8'));}catch{throw Error('Open ACBot Web Monitor.exe to enable Windows recovery controls.');}const response=await fetch('http://127.0.0.1:'+state.controlPort+route,{method:payload?'POST':'GET',headers:{'X-Setup-Token':state.token,'Content-Type':'application/json'},body:payload?JSON.stringify(payload):undefined,signal:AbortSignal.timeout(15000)});const result=await response.json();if(!response.ok)throw Error(result.error||'Launcher request failed.');return result;}
+
   const ownerFile=path.join(host.dataDir,'agent-owner.key');if(!fs.existsSync(ownerFile))try{fs.writeFileSync(ownerFile,crypto.randomBytes(32).toString('hex'),{flag:'wx',mode:0o600});}catch{}
   const ownerKey=fs.readFileSync(ownerFile,'utf8').trim();
   const updater=createUpdater({root:path.resolve(__dirname,'..'),dataDir:host.dataDir});
@@ -26,7 +32,7 @@ function createServer({auth=createAuth(host.dataDir)}={}){
   const network=()=>{try{return JSON.parse(fs.readFileSync(path.join(host.dataDir,'network.json'),'utf8'));}catch{return {};}};
   const json=(res,status,data)=>{res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});res.end(JSON.stringify(data));};
   async function body(req){let text='';for await(const chunk of req){text+=chunk;if(Buffer.byteLength(text)>1024*1024)throw Object.assign(Error('Request too large.'),{status:413});}try{return text?JSON.parse(text):{};}catch{throw Object.assign(Error('Invalid JSON.'),{status:400});}}
-  const publicConfig=()=>Object.fromEntries(Object.entries(engine.configFromEnv()).map(([k,v])=>[k,secretKey(k)?'':v]));
+  const publicConfig=()=>({...Object.fromEntries(Object.entries(engine.configFromEnv()).map(([k,v])=>[k,secretKey(k)?'':v])),_revision:configRevision(),_tokenConfigured:!!engine.configFromEnv().discordToken});
   function instance(id){const found=engine.findMobileInstance(engine.mobileConfig(),decodeURIComponent(id));if(!found)throw Object.assign(Error('Instance not found.'),{status:404});return found;}
   function profileView(id,profile,token){
     for(const [key,value]of profileSessions)if(value.expires<Date.now())profileSessions.delete(key);
@@ -74,12 +80,26 @@ function createServer({auth=createAuth(host.dataDir)}={}){
           }
           return json(res,200,{app:'ACBot Web Monitor',botRunning:engine.botRunning(),adbConnected:instances.some(i=>i.adbConnected),ldPlayerRunning:instances.some(i=>i.ldPlayerRunning),instances,logs:engine.mobileLogsConfig().map(engine.mobileLogSummary)});
         }
+        if(url.pathname==='/api/system'&&req.method==='GET'){let launcher;try{launcher=await launcherRequest('/api/health');}catch(error){launcher={error:error.message};}return json(res,200,{monitor:lifecycle.state(),launcher});}
+        if(url.pathname==='/api/system/recovery'&&req.method==='POST'){const input=await body(req);if(typeof input.enabled!=='boolean')throw Error('Choose whether recovery is enabled.');return json(res,200,await launcherRequest('/api/recovery',{enabled:input.enabled}));}
+        if(url.pathname==='/api/bot/start'&&req.method==='POST')return json(res,200,lifecycle.start());
+        if(url.pathname==='/api/bot/restart'&&req.method==='POST')return json(res,200,await lifecycle.restart());
+        if(url.pathname==='/api/bot/stop'&&req.method==='POST')return json(res,200,lifecycle.stop());
+        const settingsMatch=url.pathname.match(/^\/api\/instances\/([^/]+)\/settings$/);
+        if(settingsMatch){const id=decodeURIComponent(settingsMatch[1]);
+          if(req.method==='GET')return json(res,200,instanceSettings.view(engine.configFromEnv().autoControlInstances,id));
+          if(req.method==='POST'){const input=await body(req),config=engine.configFromEnv(),updated=instanceSettings.update(config.autoControlInstances,id,input);engine.writeEnv({...config,autoControlInstances:updated});return json(res,200,{...instanceSettings.view(updated,id),restartRequired:engine.botRunning()});}
+        }
         if(url.pathname==='/api/config'){
           if(req.method==='GET')return json(res,200,publicConfig());
           if(req.method==='POST'){
             const next=await body(req),previous=engine.configFromEnv();
+            if(next._revision&&next._revision!==configRevision())return json(res,409,{error:'Settings changed in another window. Reload saved settings before saving again. Your edits have been kept.'});
+            for(const [key,value]of Object.entries(next))if(typeof value==='string'&&/[\r\n]/.test(value))throw Error('Settings must not contain line breaks: '+key);
+            if(next.logs&&!Array.isArray(next.logs))throw Error('Logs must be a list.');
+            for(const item of next.logs||[])for(const value of Object.values(item))if(/[\r\n]/.test(String(value)))throw Error('Log settings must not contain line breaks.');
             for(const key of Object.keys(previous))if(secretKey(key)&&!next[key])next[key]=previous[key];
-            engine.writeEnv({...previous,...next});return json(res,200,publicConfig());
+            engine.writeEnv({...previous,...next});return json(res,200,{...publicConfig(),...lifecycle.changed()});
           }
         }
         if(url.pathname==='/api/console'&&req.method==='GET')return json(res,200,{logs:host.logs,botRunning:engine.botRunning()});
@@ -135,15 +155,16 @@ function createServer({auth=createAuth(host.dataDir)}={}){
       res.writeHead(200,{'Content-Type':types[path.extname(file)],'Cache-Control':'no-cache'});if(req.method==='HEAD')return res.end();fs.createReadStream(file).pipe(res);
     }catch(error){if(!res.headersSent)json(res,error.status||400,{error:error.message});else res.end();}
   });
-  server.on('close',()=>{video.stopAll();accountHistory.close();});
+  server.on('close',()=>{lifecycle.close();video.stopAll();accountHistory.close();});
   server.stopVideo=()=>video.stopAll();
+  server.stopLifecycle=()=>lifecycle.close();
   return server;
 }
 if(require.main===module){
   const port=Number(process.env.PORT||17942),server=createServer();
   const lan=process.argv.includes('--lan');
   server.listen(port,lan?'0.0.0.0':'127.0.0.1',()=>{console.log('Web Monitor ACBot: http://127.0.0.1:'+port);if(lan)for(const address of lanHosts())console.log('Local network: http://'+address+':'+port);});
-  let stopping=false;const stop=()=>{if(stopping)return;stopping=true;server.stopVideo();engine.stopAll();server.close(()=>process.exit(0));setTimeout(()=>process.exit(0),5000).unref();};
+  let stopping=false;const stop=()=>{if(stopping)return;stopping=true;server.stopLifecycle();server.stopVideo();engine.stopAll();server.close(()=>process.exit(0));setTimeout(()=>process.exit(0),5000).unref();};
   server.stopGracefully=stop;
   process.on('message',message=>{if(message?.type==='shutdown')stop();});
   process.on('SIGINT',stop);process.on('SIGTERM',stop);
