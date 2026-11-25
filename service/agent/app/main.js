@@ -902,15 +902,15 @@ function newestFile(files) {
     .sort((a, b) => b.mtimeMs - a.mtimeMs)[0] || null;
 }
 
-function resolveMobileLogFile(logPath) {
+function listMobileLogFiles(logPath) {
   const value = String(logPath || "").trim();
-  if (!value) return null;
+  if (!value) return [];
 
   if (fs.existsSync(value)) {
     const stat = fs.statSync(value);
-    if (stat.isFile()) return { filePath: value, mtimeMs: stat.mtimeMs, size: stat.size };
+    if (stat.isFile()) return [value];
     if (stat.isDirectory()) {
-      return newestFile(listFilesRecursiveLimited(value).filter((filePath) => /\.txt$/i.test(filePath)));
+      return listFilesRecursiveLimited(value).filter((filePath) => /\.txt$/i.test(filePath));
     }
   }
 
@@ -919,11 +919,15 @@ function resolveMobileLogFile(logPath) {
     const filePattern = path.basename(value);
     const matcher = wildcardToRegExp(filePattern);
     if (fs.existsSync(directory)) {
-      return newestFile(listFilesRecursiveLimited(directory).filter((filePath) => matcher.test(path.basename(filePath))));
+      return listFilesRecursiveLimited(directory).filter((filePath) => matcher.test(path.basename(filePath)));
     }
   }
 
-  return null;
+  return [];
+}
+
+function resolveMobileLogFile(logPath) {
+  return newestFile(listMobileLogFiles(logPath));
 }
 
 function tailTextFile(filePath, maxLines = 120, maxBytes = 512 * 1024) {
@@ -1614,4 +1618,4 @@ ipcMain.handle("window:maximize-toggle", () => {
 ipcMain.handle("window:close", () => mainWindow?.close());
 
 
-module.exports = { validateMonitorConfig:()=>require('../../monitor-config.cjs').validateMonitorConfig(configFromEnv()), ensureRuntimeFiles, configFromEnv, envFromConfig, writeEnv, startBot, stopBot, stopBotAndWait, mobileConfig, handleMobileRequest, getMobileInstancesStatus, mobileLogsConfig, mobileLogSummary, findMobileInstance, resolveAutoClashRootPath, resolveMobileLogFile, timestampMobileLogLines, listMobileProfiles, captureMobileAdbScreen, runMobileAction, runAndroidAutostart, startConfiguredAndroidInstances, stopAll: () => { androidAutostartShuttingDown = true; for (const controller of androidAutostartJobs.values()) controller.abort(); stopBot(); }, botRunning: () => Boolean(botProcess) };
+module.exports = { validateMonitorConfig:()=>require('../../monitor-config.cjs').validateMonitorConfig(configFromEnv()), ensureRuntimeFiles, configFromEnv, envFromConfig, writeEnv, startBot, stopBot, stopBotAndWait, mobileConfig, handleMobileRequest, getMobileInstancesStatus, mobileLogsConfig, listMobileLogFiles, mobileLogSummary, findMobileInstance, resolveAutoClashRootPath, resolveMobileLogFile, timestampMobileLogLines, listMobileProfiles, captureMobileAdbScreen, runMobileAction, runAndroidAutostart, startConfiguredAndroidInstances, stopAll: () => { androidAutostartShuttingDown = true; for (const controller of androidAutostartJobs.values()) controller.abort(); stopBot(); }, botRunning: () => Boolean(botProcess) };

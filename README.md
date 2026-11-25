@@ -148,8 +148,14 @@ Settings use the dashboard design on desktop and mobile. Save shows errors and k
 Update announcements check stable releases after sign-in and every 15 minutes while the dashboard is visible. View update opens the Updates page; Remind me tomorrow snoozes that version for 24 hours on the same browser and agent. A different release is announced separately. The dialog waits for edits and other dialogs, and never installs updates automatically.
 
 ### Mobile workspace
-The touch layout covers screens up to 900 px, including phones and portrait tablets. Bottom navigation has Overview, Account stats, Instances and a More menu for Logs, Profiles, Updates and Settings. Controls use touch-sized targets and 16 px form text; account filters, statistics and profile slots adapt to narrow screens. Profile Save stays above the bottom navigation while edits are pending. Safe-area padding supports devices with a home indicator. The emulator view keeps the full frame contained.
+The touch layout covers screens up to 900 px, including phones and portrait tablets. Bottom navigation has Overview, Account stats, Instances and a More menu for Live logs, Diagnostics, Profiles, Updates and Settings. Controls use touch-sized targets and 16 px form text. Account filters, statistics and profile slots adapt to narrow screens. Profile Save stays above the bottom navigation while edits are pending. Safe-area padding supports devices with a home indicator. The emulator view keeps the full frame contained.
 
 Discord monitor startup validates the token, fallback channel and log/APK sources before spawning. Invalid settings cancel automatic retries until corrected. Bundled runtime files are synchronized once per agent process, use atomic replacement only when content changes, and are never recopied by dashboard polling. The web dashboard itself works without Discord.
 
 Instances cards include Edit instance. Display name, ACBot folder/executable, ADB device, version, emulator, emulator index and automatic startup can be changed in a touch-friendly editor. The ID stays fixed to preserve history. Saves validate changed folders, preserve other instances and settings, and reject stale edits without discarding the form. An active Discord monitor needs restarting to load the updated configuration.
+
+### Diagnostics and issue history
+
+Open **Diagnostics** (under **More** on mobile) and choose an instance. Its ACBot log loads automatically. Select **Start live** to watch the same emulator alongside the log. Switching instances changes both panels. You can search, filter by severity, or pause log updates while the video continues.
+
+In **Live logs**, select **Issue history** to review warnings and errors from up to seven days of available ACBot logs. History shows up to 150 reports per severity for the selected source. Use **Refresh history** to read newly recorded entries.

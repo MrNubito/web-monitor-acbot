@@ -23,6 +23,7 @@ test('authenticated API, secrets, profiles, conflicts and static-only serving',a
   const base='http://127.0.0.1:'+server.address().port;
   const request=(url,options={})=>fetch(base+url,options);
   assert.equal((await request('/api/status')).status,401);assert.equal((await request('/api/accounts')).status,401);assert.equal((await request('/api/updates')).status,401);assert.equal((await request('/api/update-health?job=unknown')).status,401);
+  assert.equal((await request('/api/instances/main/log')).status,401);
   assert.equal((await request('/api/bot/start',{method:'POST'})).status,401);
   assert.equal((await request('/api/login',{method:'POST',headers:{Origin:'https://evil.example','Content-Type':'application/json'},body:JSON.stringify({password:'another-strong-test-password'})})).status,403);
   const hostileHost=await new Promise((resolve,reject)=>require('node:http').get(base+'/api/status',{headers:{Host:'evil.example'}},res=>{res.resume();resolve(res.statusCode);}).on('error',reject));
@@ -39,6 +40,26 @@ test('authenticated API, secrets, profiles, conflicts and static-only serving',a
   assert.equal((await api('/api/config',config)).status,200);
   const statsDir=path.join(acbot,'logs','stats');fs.mkdirSync(statsDir,{recursive:true});
   fs.writeFileSync(path.join(statsDir,'session-1.json'),JSON.stringify({runtime_seconds:44954,runtime:'12:29:14'}));
+  const logRoute='/api/instances/main/log';
+  assert.deepEqual((await api(logRoute)).data,{name:'Main',available:false,rows:[]});
+  const otherRoot=path.join(temp,'other-acbot');
+  fs.mkdirSync(path.join(otherRoot,'logs'),{recursive:true});
+  const mainLog=path.join(acbot,'logs','log-2026-11-25_20-00.txt');
+  fs.writeFileSync(mainLog,'20:00:01 | [UPGRADES] Suggested upgrade not found\n20:00:02 | [LICENSE] ❌ password private-value\n');
+  fs.writeFileSync(path.join(otherRoot,'logs','log-2026-11-25_20-00.txt'),'20:00:07 | [ADB ERROR] tap timed out after 5s\n');
+  const logConfig=(await api('/api/config')).data;
+  const mainInstance=logConfig.autoControlInstances;
+  logConfig.autoControlInstances+=';'+['other','Main',otherRoot,'','pro','false','auto',''].join('|');
+  assert.equal((await api('/api/config',logConfig)).status,200);
+  const mainLogResult=(await api(logRoute)).data;
+  assert.deepEqual(mainLogResult.rows,[
+    {text:'20:00:01 | [UPGRADES] Suggested upgrade not found',severity:'warning'},
+    {text:'[Sensitive app log omitted]',severity:'error'},
+  ]);
+  const otherLogResult=(await api('/api/instances/other/log')).data;
+  assert.deepEqual(otherLogResult.rows,[{text:'20:00:07 | [ADB ERROR] tap timed out after 5s',severity:'error'}]);
+  assert.equal((await api('/api/instances/unknown/log')).status,404);
+  assert.equal((await api('/api/config',{...(await api('/api/config')).data,autoControlInstances:mainInstance})).status,200);
   const runtimeStatus=await api('/api/status');assert.equal(runtimeStatus.data.instances[0].runtime.label,'12:29:14');assert.equal(runtimeStatus.data.instances[0].runtime.seconds,44954);
   const readConfig=await api('/api/config');assert.equal(readConfig.data.discordToken,'');assert.ok(!JSON.stringify(readConfig.data).includes('test-secret-never-return-this'));
   await api('/api/config',{...readConfig.data,discordToken:''});assert.equal(engine.configFromEnv().discordToken,'test-secret-never-return-this');

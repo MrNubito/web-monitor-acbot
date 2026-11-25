@@ -6,6 +6,9 @@ const runtimeTools=import('../web/runtime.js');
 const {describeProfile,validateChange,readonly}=require('./profile-fields.cjs');
 const {lanHosts}=require('./network.cjs');
 const {createVideoService}=require('./video.cjs');
+const {createLogIssueReader,consoleIssues}=require('./log-issues.cjs');
+const {redact}=require('./agent/android-apk-monitor');
+const {logSeverity}=require('../web/log-severity.js');
 const {createAccountHistory}=require('./account-history.cjs');
 const {createUpdater}=require('./updates.cjs');
 const {createTelemetryReader}=require('./telemetry.cjs');
@@ -18,6 +21,7 @@ engine.ensureRuntimeFiles();
 const secretKey=key=>/token|password|secret|apiKey/i.test(key);
 function createServer({auth=createAuth(host.dataDir)}={}){
   const profileSessions=new Map();
+  const readLogIssues=createLogIssueReader(engine.listMobileLogFiles);
   const lifecycle=createMonitorLifecycle({file:path.join(host.dataDir,'monitor-state.json'),engine,log:text=>host.recordLog('info',text)});lifecycle.begin();
   const configRevision=()=>crypto.createHash('sha256').update(fs.readFileSync(path.join(host.dataDir,'.env'))).digest('hex');
   async function launcherRequest(route,payload){let state;try{state=JSON.parse(fs.readFileSync(path.join(host.dataDir,'launcher-state.json'),'utf8'));}catch{throw Error('Open ACBot Web Monitor.exe to enable Windows recovery controls.');}const response=await fetch('http://127.0.0.1:'+state.controlPort+route,{method:payload?'POST':'GET',headers:{'X-Setup-Token':state.token,'Content-Type':'application/json'},body:payload?JSON.stringify(payload):undefined,signal:AbortSignal.timeout(15000)});const result=await response.json();if(!response.ok)throw Error(result.error||'Launcher request failed.');return result;}
@@ -102,12 +106,28 @@ function createServer({auth=createAuth(host.dataDir)}={}){
             engine.writeEnv({...previous,...next});return json(res,200,{...publicConfig(),...lifecycle.changed()});
           }
         }
+        if(url.pathname==='/api/log-issues'&&req.method==='GET'){
+          const source=url.searchParams.get('source')||'console';
+          if(source==='console')return json(res,200,consoleIssues(host.logs));
+          const log=engine.mobileLogsConfig().find(item=>item.name===source);
+          if(!log)return json(res,404,{error:'Log source not found.'});
+          return json(res,200,await readLogIssues(log.path));
+        }
         if(url.pathname==='/api/console'&&req.method==='GET')return json(res,200,{logs:host.logs,botRunning:engine.botRunning()});
         if(url.pathname==='/api/android/devices'&&req.method==='GET')return json(res,200,{devices:await host.handlers.get('android:devices')()});
         if(url.pathname==='/api/android/start'&&req.method==='POST'){const data=await body(req);return json(res,200,await host.handlers.get('android:autostart')(null,data.settings||engine.configFromEnv(),data.id));}
         if(url.pathname==='/api/android/cancel'&&req.method==='POST'){const data=await body(req);return json(res,200,await host.handlers.get('android:autostart-cancel')(null,data.device));}
         const videoMatch=url.pathname.match(/^\/api\/instances\/([^/]+)\/video$/);
         if(videoMatch&&req.method==='GET')return await video.stream(instance(videoMatch[1]),req,res);
+        const instanceLog=url.pathname.match(/^\/api\/instances\/([^/]+)\/log$/);
+        if(instanceLog&&req.method==='GET'){
+          const selected=instance(instanceLog[1]);
+          const root=engine.resolveAutoClashRootPath(selected);
+          const log=root&&engine.resolveMobileLogFile(path.join(root,'logs'));
+          const lines=log?engine.timestampMobileLogLines(log.filePath,100).split('\n').filter(Boolean):[];
+          const rows=lines.map(text=>({text:redact(text),severity:logSeverity(text)}));
+          return json(res,200,{name:selected.label,available:!!log,rows});
+        }
         const stats=url.pathname.match(/^\/api\/instances\/([^/]+)\/stats$/);
         if(stats&&req.method==='GET'){const root=engine.resolveAutoClashRootPath(instance(stats[1]));if(!root)return json(res,200,{available:false,message:'Configure the ACBot folder first.'});return json(res,200,readStats(root,url.searchParams.get('period')==='daily'?'daily':'session'));}
         const profileList=url.pathname.match(/^\/api\/instances\/([^/]+)\/profiles$/);
